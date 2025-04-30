@@ -1,0 +1,12 @@
+/* 기본 nav 링크 텍스트 */
+.nav-link {
+    color: #ccc !important;
+  }
+  
+  /* ✅ 활성화 + bg-info 조합된 경우 강제 덮어쓰기 */
+  .nav-link.active.bg-info {
+    color: #000 !important;  /* 🔥 여기로 확실히 적용됨 */
+    font-weight: bold;
+    border-radius: 0.3rem;
+  }
+  

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <!-- Slate 부트스와치 테마 (다크 스타일) -->
+<link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/solar/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  
+</head>
+
+<body class="container py-4">
+
+   <!-- ✅ 네비게이션 바 -->
+   <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 rounded px-3">
+    <a class="navbar-brand fw-bold" href="{{ url_for('backtest') }}">📡 떨사오팔 Pro 레이더</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-3">
+        <li class="nav-item">
+            <a class="nav-link {% if request.path == '/backtest' %}active bg-info{% endif %}" href="{{ url_for('backtest') }}">📈 백테스트</a>
+          </li>          
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/recommend' %}active bg-info{% endif %}" href="{{ url_for('recommend') }}">🎯 전략 추천</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <form method="post" class="mb-4">
+    <div class="row g-2 align-items-end">
+      <!-- 종목코드 -->
+      <div class="col-md-3">
+        <label class="form-label">종목코드</label>
+        <input type="text" name="symbol" value="{{ selected_symbol }}" class="form-control" required>
+      </div>
+  
+      <!-- 시작일 -->
+      <div class="col-md-3">
+        <label class="form-label">시작일</label>
+        <input type="date" name="start" value="{{ selected_start }}" class="form-control" required>
+      </div>
+  
+      <!-- 종료일 -->
+      <div class="col-md-3">
+        <label class="form-label">종료일</label>
+        <input type="date" name="end" value="{{ selected_end }}" class="form-control" required>
+      </div>
+  
+      <!-- 버튼 -->
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-success w-100">✅ 백테스트 실행</button>
+      </div>
+    </div>
+  </form>
+  
+
+  <!-- ✅ 로딩 아이콘 (초기엔 숨김) -->
+    <div id="loading-spinner" class="text-center my-4" style="display: none;">
+    <div class="spinner-border text-info" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-2">분석 중입니다... 잠시만 기다려주세요 ⏳</p>
+  </div>
+  
+  {% if result_text %}
+    <div class="alert alert-info">{{ result_text|safe }}</div>
+  {% endif %}
+
+  {% if feature_summary %}
+  <div class="mb-4">
+    <div class="alert alert-secondary text-dark">
+         <!-- ✅ 여기에 삽입 -->
+      {% if chart_html %}
+      <div>{{ chart_html|safe }}</div>
+    {% endif %}
+      <strong>📌 구간 지표 요약 (종료일 기준)</strong><br>
+      정배열: {{ feature_summary["정배열"] }} |
+      기울기: {{ feature_summary["기울기"] }} |
+      이격도: {{ feature_summary["이격도"] }} |
+      변동성: {{ feature_summary["변동성"] }} |
+      상승비율: {{ feature_summary["상승비율"] }} |
+      RSI: {{ feature_summary["RSI"] }}
+    </div>
+  </div>
+{% endif %}
+
+  <!-- ✅ 여기 아래에 삽입하세요 -->
+    {% if results %}
+    <div class="row">
+        <div id="result-cards" class="row">
+    {% for name, r in results.items() %}
+    <div class="col-md-4">
+        <div class="card text-dark bg-light mb-3">
+        <div class="card-header fw-bold">{{ name }}</div>
+        <div class="card-body">
+            <p class="card-text">
+                <strong>분할 비율</strong> {{ r["분할비율"] }}<br>
+                <div class="card mb-4 p-0" style="background-color: rgba(255, 255, 255, 0.05); border: none;">
+                    <div class="row row-cols-2 row-cols-md-3 g-2">
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          6분할 10일 손절
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          매도 기준 +0.01%
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          매수 기준 -0.01%
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          손절 시 매수 O
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          수익금 재투자 X
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          정액매수 X
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  
+            </p>
+            <hr>              
+            <p class="card-text">💰 초기 투자금: $10,000</p>
+            <p class="card-text">📦 최종 자산: ${{ "{:,.0f}".format(r.final_value) }}</p>
+            <p class="card-text">📈 수익률: {{ r['수익률'] }}%</p>
+            <p class="card-text">📉 최대 낙폭(MDD): {{ r['MDD'] }}%</p>
+            {% if r.graph %}
+                <div class="mt-3">{{ r.graph|safe }}</div>
+            {% endif %}
+        </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+    </div>
+    {% endif %}
+
+
+  <script>
+    function showLoading() {
+      // 폼과 결과 카드 숨기기
+      document.querySelector("form").style.display = "none";
+      const resultSection = document.querySelector("#result-cards");
+      if (resultSection) resultSection.style.display = "none";
+  
+      // 로딩 스피너 보이기
+      document.querySelector("#loading-spinner").style.display = "block";
+    }
+  </script>
+  
+</body>
+</html>
