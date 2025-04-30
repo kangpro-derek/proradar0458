@@ -186,19 +186,20 @@ def backtest():
             fig.add_trace(go.Scatter(
                 x=x_all,
                 y=y_all,
-                name=f"{name} 가치",
+                name="자산",
                 line=dict(color="royalblue", width=3),
                 mode="lines",
                 yaxis="y2"
             ))
 
             fig.update_layout(
-                title=f"{name} 포트폴리오 가치 & MDD",
+                title=f"{name} 자산 및 MDD 차트",
                 template="plotly_dark",
-                xaxis=dict(title="날짜"),
-                yaxis=dict(title="MDD (%)", range=[y1_min, 0], side="left"),
-                yaxis2=dict(title="자산 가치", range=[0, y2_max], overlaying="y", side="right", showgrid=False),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                xaxis=dict(title=None),
+                yaxis=dict(title=None, range=[y1_min, 0], side="left"),
+                yaxis2=dict(title=None, range=[0, y2_max], overlaying="y", side="right", showgrid=False),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                margin=dict(l=0, r=0, t=80, b=30)  # ✅ 마진 조정: 상하좌우
             )
 
             graph_html = pio.to_html(fig, full_html=False)
