@@ -28,6 +28,7 @@
 
   <form method="post" class="mb-4">
     <div class="row g-2 align-items-end">
+      
       <!-- 종목코드 -->
       <div class="col-md-3">
         <label class="form-label">종목코드</label>
@@ -46,12 +47,20 @@
         <input type="date" name="end" value="{{ selected_end }}" class="form-control" required>
       </div>
   
-      <!-- 버튼 -->
+      <!-- 백테스트 버튼 + 스피너 -->
       <div class="col-md-3">
-        <button type="submit" class="btn btn-success w-100">✅ 백테스트 실행</button>
+        <div id="backtest-btn-group">
+          <button id="backtest-btn" type="submit" class="btn btn-success w-100">✅ 백테스트 실행</button>
+          <div id="backtest-spinner" class="text-center mt-1" style="display: none;">
+            <div class="spinner-border text-light" role="status" style="width: 1.5rem; height: 1.5rem;"></div>
+            <div class="small">처리 중...</div>
+          </div>
+        </div>
       </div>
+  
     </div>
   </form>
+  
   
 
   <!-- ✅ 로딩 아이콘 (초기엔 숨김) -->
@@ -73,13 +82,46 @@
       {% if chart_html %}
       <div>{{ chart_html|safe }}</div>
     {% endif %}
-      <strong>📌 구간 지표 요약 (종료일 기준)</strong><br>
-      정배열: {{ feature_summary["정배열"] }} |
-      기울기: {{ feature_summary["기울기"] }} |
-      이격도: {{ feature_summary["이격도"] }} |
-      변동성: {{ feature_summary["변동성"] }} |
-      상승비율: {{ feature_summary["상승비율"] }} |
-      RSI: {{ feature_summary["RSI"] }}
+    <!-- ✅ 지표 카드 UI -->
+  <div class="row row-cols-2 row-cols-md-6 g-2 text-center mt-1">
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">정배열(20ma-60ma)</div>
+        <div class="fw-bold">{{ feature_summary["정배열"] }}</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">기울기(20ma 10일)</div>
+        <div class="fw-bold">{{ feature_summary["기울기"] }}</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">이격도(주가/20ma)</div>
+        <div class="fw-bold">{{ feature_summary["이격도"] }}</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">변동성(20day)</div>
+        <div class="fw-bold">{{ feature_summary["변동성"] }}</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">상승비율(20day)</div>
+        <div class="fw-bold">{{ feature_summary["상승비율"] }}</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">RSI(14)</div>
+        <div class="fw-bold">{{ feature_summary["RSI"] }}</div>
+      </div>
+    </div>
+  </div>
+    
     </div>
   </div>
 {% endif %}
@@ -91,7 +133,7 @@
     {% for name, r in results.items() %}
     <div class="col-md-4">
         <div class="card text-dark bg-light mb-3">
-        <div class="card-header fw-bold">{{ name }}</div>
+        <div class="card-header fw-bold">떨사오팔 {{ name }}</div>
         <div class="card-body">
             <p class="card-text">
                 <strong>분할 비율</strong> {{ r["분할비율"] }}<br>
@@ -100,16 +142,6 @@
                       <div class="col">
                         <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
                           6분할 10일 손절
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
-                          매도 기준 +0.01%
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
-                          매수 기준 -0.01%
                         </div>
                       </div>
                       <div class="col">
@@ -125,6 +157,16 @@
                       <div class="col">
                         <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
                           정액매수 X
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          매수 기준 -0.01%
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="border rounded p-1 text-center small text-dark" style="background-color: rgba(255, 255, 255, 0.3);">
+                          매도 기준 +0.01%
                         </div>
                       </div>
                     </div>
@@ -147,19 +189,31 @@
 </div>
     </div>
     {% endif %}
-
-
-  <script>
-    function showLoading() {
-      // 폼과 결과 카드 숨기기
-      document.querySelector("form").style.display = "none";
-      const resultSection = document.querySelector("#result-cards");
-      if (resultSection) resultSection.style.display = "none";
-  
-      // 로딩 스피너 보이기
-      document.querySelector("#loading-spinner").style.display = "block";
-    }
-  </script>
-  
+    
 </body>
 </html>
+
+<script>
+  function showLoading() {
+    // 폼과 결과 카드 숨기기
+    document.querySelector("form").style.display = "none";
+    const resultSection = document.querySelector("#result-cards");
+    if (resultSection) resultSection.style.display = "none";
+
+    // 로딩 스피너 보이기
+    document.querySelector("#loading-spinner").style.display = "block";
+  }
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.querySelector("form");
+    const backtestBtn = document.getElementById("backtest-btn");
+    const backtestSpinner = document.getElementById("backtest-spinner");
+  
+    form.addEventListener("submit", function () {
+      if (backtestBtn) backtestBtn.style.display = "none";
+      if (backtestSpinner) backtestSpinner.style.display = "block";
+    });
+  });
+  </script>

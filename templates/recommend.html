@@ -26,10 +26,217 @@
     </div>
   </nav>
   
+  <form method="post" class="mb-4">
+    <div class="row g-2 align-items-end">
   
+      <!-- 오늘 기준 / 특정일 기준 -->
+      <div class="col-md-3">
+        <label class="form-label">기준 선택</label>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="date_mode" id="today_mode" value="today" checked>
+          <label class="form-check-label" for="today_mode">오늘 기준</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="date_mode" id="custom_mode" value="custom">
+          <label class="form-check-label" for="custom_mode">특정일 기준</label>
+        </div>
+      </div>
+  
+      <!-- 날짜 입력 -->
+      <div class="col-md-3">
+        <label class="form-label">기준 날짜</label>
+        <input type="date" class="form-control" name="custom_date" id="custom_date" 
+              value="{{ selected_date or '' }}">
+      </div>
+
+  
+      <!-- 실행 버튼 (추천 페이지용) -->
+      <div class="col-md-3">
+        <div id="recommend-btn-group">
+          <button id="recommend-btn" type="submit" class="btn btn-success w-100">📊 전략 추천 실행</button>
+          <div id="recommend-spinner" class="text-center mt-1" style="display: none;">
+            <div class="spinner-border text-light" role="status" style="width: 1.5rem; height: 1.5rem;"></div>
+            <div class="small">추천 중...</div>
+          </div>
+        </div>
+      </div>
+  
+    </div>
+  </form>
+      
+
+  {% if recommend_result %}
+<div class="mt-5">
+
+  <!-- ✅ 1. 분석 구간 데이터 -->
+  {% if recommend_result %}
+<!-- ✅ 분석 결과 영역 -->
+<div class="p-3 rounded" style="background-color: #2c2f33;">
+  <div class="mb-2 small text-light">
+    📌 <strong>추천 기준일:</strong> {{ recommend_result["기준일"] }} |
+    ✅ <strong>분석 구간:</strong> {{ recommend_result["시작일"] }} ~ {{ recommend_result["종료일"] }}
+  </div>
+
+
+  <!-- ✅ 분석 차트 -->
+  {% if chart_html %}
+    <div class="mb-3">{{ chart_html|safe }}</div>
+  {% endif %}
+
+  <!-- ✅ 지표 카드 -->
+  <div class="row row-cols-2 row-cols-md-6 g-2 mt-2">
+    <div class="col">
+      <div class="analysis-card">
+        정배열(20ma-60ma)
+        <strong>{{ recommend_result["정배열"] }}</strong>
+      </div>
+    </div>
+    <div class="col">
+      <div class="analysis-card">
+        기울기(20ma 10일)
+        <strong>{{ recommend_result["기울기"] }}</strong>
+      </div>
+    </div>
+    <div class="col">
+      <div class="analysis-card">
+        이격도(주가/20ma)
+        <strong>{{ recommend_result["이격도"] }}</strong>
+      </div>
+    </div>
+    <div class="col">
+      <div class="analysis-card">
+        변동성(20day)
+        <strong>{{ recommend_result["변동성"] }}</strong>
+      </div>
+    </div>
+    <div class="col">
+      <div class="analysis-card">
+        상승비율(20day)
+        <strong>{{ recommend_result["상승비율"] }}</strong>
+      </div>
+    </div>
+    <div class="col">
+      <div class="analysis-card">
+        RSI(14)
+        <strong>{{ recommend_result["RSI"] }}</strong>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+  <!-- ✅ 유사 구간 Top 3 상세 출력 -->
+  <h5 class="mt-5">📌 유사했던 과거 구간 (Top 3)</h5>
+  <div class="row row-cols-1 row-cols-md-3 g-3">
+    {% for item in recommend_result['유사구간상세'] %}
+      <div class="col">
+        <div class="card h-100 text-dark bg-light">
+          <div class="card-header fw-bold">
+            {{ item.순번 }}: {{ item.시작일 }} ~ {{ item.종료일 }}
+          </div>
+          <div class="card-body">
+            <div class="mb-2 small text-dark">
+              📅 성과 확인 기간: {{ item.성과시작 }} ~ {{ item.성과종료 }}<br>
+              🎯 유사도: {{ item.유사도 }}
+            </div>
+  
+            <!-- ✅ 지표 카드 (6개) -->
+            <div class="row row-cols-2 g-2 text-center mt-2">
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">정배열<br><strong>{{ item.정배열 }}</strong></div></div>
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">기울기<br><strong>{{ item.기울기 }}</strong></div></div>
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">이격도<br><strong>{{ item.이격도 }}</strong></div></div>
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">변동성<br><strong>{{ item.변동성 }}</strong></div></div>
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">상승비율<br><strong>{{ item.상승비율 }}</strong></div></div>
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">RSI<br><strong>{{ item.RSI }}</strong></div></div>
+            </div>
+  
+            <hr class="my-3">
+  
+            <!-- ✅ 전략별 성과 -->
+            <div class="small">
+              <p>📈 <strong>Pro1</strong>: 수익률 {{ item.Pro1.수익률 }}, MDD {{ item.Pro1.MDD }}</p>
+              <p>📈 <strong>Pro2</strong>: 수익률 {{ item.Pro2.수익률 }}, MDD {{ item.Pro2.MDD }}</p>
+              <p>📈 <strong>Pro3</strong>: 수익률 {{ item.Pro3.수익률 }}, MDD {{ item.Pro3.MDD }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  
+
+
+<!-- ✅ 전략별 점수 (고정 폭 + 가운데 정렬) -->
+<div class="mt-4 mx-auto" style="max-width: 360px;">  <!-- 약 1/3폭 + 가운데 정렬 -->
+  <div class="p-3 rounded bg-light text-dark">
+    <h5>📊 전략별 종합 점수</h5>
+    <div class="d-flex flex-column gap-2 mt-2">
+      {% for strat, score in recommend_result["점수"].items() %}
+        <div class="border rounded p-2 bg-white bg-opacity-75 d-flex justify-content-between align-items-center">
+          <span class="fw-bold">{{ strat }}</span>
+          <span class="fs-6">{{ "%.2f"|format(score) }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+
+
+  <!-- ✅ 4. 최종 추천 전략 (가로폭 고정 + 중앙 정렬 + 위간격 추가) -->
+<div class="mt-4 mx-auto" style="max-width: 360px;">
+  <div class="alert alert-success text-center">
+    🎯 <strong>추천 전략:</strong> {{ recommend_result["추천"] }}
+  </div>
+</div>
+
+
+</div>
+{% endif %}
+
 
   <div>
 
   </div>
 </body>
 </html>
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const todayRadio = document.getElementById("today_mode");
+    const customRadio = document.getElementById("custom_mode");
+    const dateInput = document.getElementById("custom_date");
+
+    function toggleDateInput() {
+      if (customRadio.checked) {
+        dateInput.disabled = false;
+      } else {
+        const today = new Date().toISOString().split('T')[0];  // 오늘 날짜 yyyy-mm-dd
+        dateInput.value = today;
+        dateInput.disabled = true;
+      }
+    }
+
+    todayRadio.addEventListener("change", toggleDateInput);
+    customRadio.addEventListener("change", toggleDateInput);
+
+    toggleDateInput();  // 최초 로딩 시 초기화
+  });
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.querySelector("form");
+    const recommendBtn = document.getElementById("recommend-btn");
+    const recommendSpinner = document.getElementById("recommend-spinner");
+  
+    form.addEventListener("submit", function () {
+      if (recommendBtn) recommendBtn.style.display = "none";
+      if (recommendSpinner) recommendSpinner.style.display = "block";
+    });
+  });
+  </script>
