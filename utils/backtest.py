@@ -4,52 +4,125 @@
 import pandas as pd
 import numpy as np
 from datetime import timedelta
-import yfinance as yf
 from datetime import datetime
+import os
+import pandas as pd
+from alpha_vantage.timeseries import TimeSeries
+
+from alpha_vantage.timeseries import TimeSeries
+import pandas as pd
+import os
+
+API_KEY = "AP68Y6LGDXSHYQEP"
+CALL_COUNT = 0
+MAX_CALLS_PER_DAY = 490  # Alpha Vantage 무료 플랜 기준 (여유 포함)
+
+def check_api_quota():
+    global CALL_COUNT
+    CALL_COUNT += 1
+    print(f"📈 API 호출 카운트: {CALL_COUNT}/{MAX_CALLS_PER_DAY}")
+    if CALL_COUNT > MAX_CALLS_PER_DAY:
+        raise RuntimeError("📛 Alpha Vantage 일일 호출 한도 초과. 내일 다시 시도하세요.")
+        
+def is_range_cached(start_dt, end_dt, df):
+    if "date" not in df.columns or df.empty:
+        return False
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    if df.empty:
+        return False
+    min_cached = df["date"].min()
+    max_cached = df["date"].max()
+
+    # 🔍 로그로 확인
+    print(f"🔎 캐시 범위: {min_cached.date()} ~ {max_cached.date()}")
+    print(f"📅 요청 범위: {start_dt.date()} ~ {end_dt.date()}")
+
+    return start_dt >= min_cached and end_dt <= max_cached
+    
+def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
+    delta = series.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+
+    avg_gain = gain.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
 
 def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
-    """
-    yfinance를 이용해 주가 데이터를 받아오는 함수
-    :param symbol: 종목 코드 (예: 'SOXL')
-    :param start: 시작일자 (예: '2021-01-01')
-    :param end: 종료일자 (예: '2023-12-31')
-    :return: 날짜별 종가가 포함된 DataFrame
-    """
-    df = yf.download(
-        symbol,
-        start=start,
-        end=end,
-        progress=True,      # 콘솔 출력
-        auto_adjust=False     # 조정 종가 X
-    )[["Close"]].dropna()
+    cache_dir = "cache"
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, f"{symbol}.csv")
 
-    df = df.reset_index()
-    df.columns = ["date", "close"]
-    df["date"] = pd.to_datetime(df["date"])
-    
+    ts = TimeSeries(key=API_KEY, output_format="pandas")
+
+    # ✅ 캐시 로드
+    if os.path.exists(cache_file):
+        cached_df = pd.read_csv(cache_file, parse_dates=["date"])
+    else:
+        cached_df = pd.DataFrame(columns=["date", "close", "open", "high", "low", "volume"])
+
+    # ✅ 날짜 설정
+    start_dt = pd.to_datetime(start)
+    end_dt = pd.to_datetime(end)
+
+    # ✅ 오늘 기준 미국 시장의 최신 거래일 예상 (UTC 기준 하루 전)
+    today_us = datetime.utcnow().date()
+    last_possible_date = today_us - timedelta(days=1)
+
+    if end_dt.date() > last_possible_date:
+        print(f"⏳ 요청 종료일 {end_dt.date()}은 아직 데이터가 없을 가능성이 있음 (최대: {last_possible_date})")
+        if not cached_df.empty:
+            cached_df["date"] = pd.to_datetime(cached_df["date"], errors="coerce")
+            max_cached = cached_df["date"].dropna().max()
+            if max_cached >= start_dt:
+                print(f"✅ 캐시 내 최종일 {max_cached.date()}이므로 재요청 없이 캐시만 사용")
+                end_dt = max_cached  # 요청 범위 줄이기
+                
+    # ✅ 부족한 날짜 있으면 다운로드
+    if not is_range_cached(start_dt, end_dt, cached_df):
+        print("🌐 Alpha Vantage로 부족한 데이터 다운로드")
+        check_api_quota()
+
+        try:
+            fetched_df, _ = ts.get_daily(symbol=symbol, outputsize="full")
+        except Exception as e:
+            print(f"❌ Alpha Vantage 다운로드 실패: {e}")
+            return pd.DataFrame()
+
+        fetched_df = fetched_df.rename(columns={
+            "1. open": "open", "2. high": "high", "3. low": "low",
+            "4. close": "close", "5. volume": "volume"
+        }).reset_index().rename(columns={"date": "date"})
+
+        fetched_df["date"] = pd.to_datetime(fetched_df["date"])
+        fetched_df = fetched_df[["date", "close", "open", "high", "low", "volume"]].sort_values("date")
+
+        cached_df = pd.concat([cached_df, fetched_df]).drop_duplicates(subset="date").sort_values("date")
+        cached_df.to_csv(cache_file, index=False)
+        print(f"✅ 병합 캐시 저장 완료: {cache_file}")
+
+    full_df = cached_df.copy()
+    full_df["date"] = pd.to_datetime(full_df["date"])
+    result_df = full_df[(full_df["date"] >= start_dt) & (full_df["date"] <= end_dt)].copy()
+
     # ✅ 지표 계산
-    df['ma20'] = df['close'].rolling(window=20).mean()
-    df['ma60'] = df['close'].rolling(window=60).mean()
-    df["기울기"] = ((df["ma20"] - df["ma20"].shift(10)) / df["ma20"].shift(10)) * 100
-    df["정배열"] = (df["ma20"] > df["ma60"]).astype(int)
-    df["이격도"] = (df["close"] / df["ma20"] - 1) * 100
-    df["수익률"] = df["close"].pct_change()
-    df["변동성"] = df["수익률"].rolling(window=20).std() * (20 ** 0.5)
-    df["상승비율"] = df["수익률"].rolling(window=20).apply(lambda x: (x > 0).mean(), raw=True)
+    result_df['ma20'] = result_df['close'].rolling(window=20).mean()
+    result_df['ma60'] = result_df['close'].rolling(window=60).mean()
+    result_df["기울기"] = ((result_df["ma20"] - result_df["ma20"].shift(10)) / result_df["ma20"].shift(10)) * 100
+    result_df["정배열"] = (result_df["ma20"] > result_df["ma60"]).astype(int)
+    result_df["이격도"] = (result_df["close"] / result_df["ma20"] - 1) * 100
+    result_df["수익률"] = result_df["close"].pct_change()
+    result_df["변동성"] = result_df["수익률"].rolling(window=20).std() * (20 ** 0.5)
+    result_df["상승비율"] = result_df["수익률"].rolling(window=20).apply(lambda x: (x > 0).mean(), raw=True)
+    result_df["RSI"] = calculate_rsi(result_df["close"])
 
-    # ✅ RSI 계산 함수 필요 시:
-    def calculate_rsi(series, period=14):
-        delta = series.diff()
-        gain = delta.where(delta > 0, 0.0)
-        loss = -delta.where(delta < 0, 0.0)
-        avg_gain = gain.rolling(window=period).mean()
-        avg_loss = loss.rolling(window=period).mean()
-        rs = avg_gain / avg_loss
-        return 100 - (100 / (1 + rs))
+    return result_df.reset_index(drop=True)
 
-    df["RSI"] = calculate_rsi(df["close"], period=14)
-
-    return df
 
 def log_backtest_debug(name, df, result, initial_capital, buy_discount, sell_premium):
     print(f"\n📘 [디버그: {name}]")

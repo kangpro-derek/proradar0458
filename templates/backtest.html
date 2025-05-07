@@ -13,26 +13,19 @@
 
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 rounded px-3">
     <a class="navbar-brand fw-bold" href="{{ url_for('backtest') }}">📡 떨사오팔 Pro 레이더</a>
-  
-    <!-- ✅ 토글 버튼 (모바일에서 메뉴 확장) -->
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
-            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-  
+    
     <!-- ✅ 메뉴 항목 -->
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav ms-3">
-        <li class="nav-item">
-          <a class="nav-link {% if request.path == '/backtest' %}active bg-info{% endif %}" 
-             href="{{ url_for('backtest') }}">📈 백테스트</a>
-        </li>          
-        <li class="nav-item">
-          <a class="nav-link {% if request.path == '/recommend' %}active bg-info{% endif %}" 
-             href="{{ url_for('recommend') }}">🎯 전략 추천</a>
-        </li>
-      </ul>
-    </div>
+     <!-- ✅ 항상 보이게 -->
+      <div class="navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-3">
+          <li class="nav-item">
+            <a class="nav-link {% if request.path == '/backtest' %}active bg-info{% endif %}" href="{{ url_for('backtest') }}">📈 백테스트</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.path == '/recommend' %}active bg-info{% endif %}" href="{{ url_for('recommend') }}">🎯 전략 추천</a>
+          </li>
+        </ul>
+      </div>
   </nav>
   
 
@@ -86,7 +79,7 @@
   {% endif %}
 
   {% if feature_summary %}
-  <div class="mb-4">
+  <div class="mb-4 backtest-output">
     <div class="alert alert-secondary text-dark">
          <!-- ✅ 여기에 삽입 -->
       {% if chart_html %}
@@ -138,7 +131,7 @@
 
   <!-- ✅ 여기 아래에 삽입하세요 -->
     {% if results %}
-    <div class="row">
+    <div class="row backtest-output">
         <div id="result-cards" class="row">
     {% for name, r in results.items() %}
     <div class="col-md-4">
@@ -220,10 +213,36 @@
     const form = document.querySelector("form");
     const backtestBtn = document.getElementById("backtest-btn");
     const backtestSpinner = document.getElementById("backtest-spinner");
-  
-    form.addEventListener("submit", function () {
+
+    // ✅ 이전 입력값 저장용 (Jinja로 전달됨)
+    let lastSymbol = "{{ selected_symbol }}";
+    let lastStart = "{{ selected_start }}";
+    let lastEnd = "{{ selected_end }}";
+
+    // ✅ 백테스트 결과 존재 여부 (Jinja에서 설정)
+    const hasResults = {{ 'true' if results else 'false' }};
+
+    form.addEventListener("submit", function (event) {
+      const symbol = form.querySelector("input[name='symbol']").value;
+      const start = form.querySelector("input[name='start']").value;
+      const end = form.querySelector("input[name='end']").value;
+
+      // ✅ 결과가 있을 때만 중복 입력값 검사
+      if (hasResults && symbol === lastSymbol && start === lastStart && end === lastEnd) {
+        event.preventDefault();
+        alert("⚠️ 이전과 동일한 입력값입니다.");
+        return;
+      }
+
+      // ✅ 로딩 표시 및 흐림 처리
       if (backtestBtn) backtestBtn.style.display = "none";
       if (backtestSpinner) backtestSpinner.style.display = "block";
+
+      const resultSections = document.querySelectorAll(".backtest-output");
+      resultSections.forEach(el => el.style.opacity = "0.3");
     });
   });
-  </script>
+</script>
+
+
+
