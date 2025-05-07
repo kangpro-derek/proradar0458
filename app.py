@@ -7,6 +7,7 @@ import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 import os
 import pyarrow.feather as feather
+import time
 from utils.backtest import run_simple_ttl_backtest, get_price_data
 from utils.backtest import get_price_data, run_daily_rolling_backtest
 from utils.recommend import recommend_best_strategy, calculate_rsi
@@ -101,7 +102,7 @@ def backtest():
             )
         )
 
-        chart_html = pio.to_html(chart_fig, full_html=False)
+        chart_html = pio.to_html(chart_fig, full_html=False, config={"staticPlot": True})
 
 
         # ✅ 최신 지표 추출
@@ -211,7 +212,7 @@ def backtest():
                 margin=dict(l=0, r=0, t=80, b=30)  # ✅ 마진 조정: 상하좌우
             )
 
-            graph_html = pio.to_html(fig, full_html=False)
+            graph_html = pio.to_html(fig, full_html=False, config={"staticPlot": True})
 
             results[name] = {
                 "final_value": last_value,
@@ -387,7 +388,7 @@ def evaluate_strategy(row, df):
         "Pro3_수익률": performance["Pro3"]["수익률"],
         "Pro3_mdd": performance["Pro3"]["MDD"]
     }
-
+    
 def load_or_run_rolling_cache(symbol, df, start_date, test_days):
     cache_path = f"cache/{symbol}_rolling.feather"
 
@@ -400,20 +401,43 @@ def load_or_run_rolling_cache(symbol, df, start_date, test_days):
         existing_dates = set()
         print(f"📁 [롤링 캐시] 새 캐시 파일 생성 예정: {cache_path}")
 
-    full_df = run_daily_rolling_backtest(df, start_date=start_date, test_days=test_days)
-    full_df = full_df[~full_df["종료일"].isin(existing_dates)].copy()
+    # ✅ 최신 날짜 이후만 백테스트
+    if not existing_df.empty:
+        latest_cached_date = pd.to_datetime(existing_df["종료일"]).max()
+        new_start_date = (latest_cached_date + timedelta(days=1)).strftime("%Y-%m-%d")
+        print(f"⏳ 최신 캐시 종료일: {latest_cached_date.date()} → 새로운 백테스트 시작일: {new_start_date}")
+    else:
+        latest_cached_date = None
+        new_start_date = start_date
+        print(f"🚀 캐시 없음 → 전체 구간 시작일로 백테스트 시작: {new_start_date}")
 
-    if not full_df.empty:
-        start_new = full_df["종료일"].min()
-        end_new = full_df["종료일"].max()
-        print(f"📦 [캐시 병합] 새로 계산된 백테스트 추가: {start_new} ~ {end_new}")
-        updated_df = pd.concat([existing_df, full_df], ignore_index=True)
+    # ✅ 더 이상 계산할 날짜가 없다면 종료
+    df_max_date = df["date"].max().date()
+    if pd.to_datetime(new_start_date).date() > df_max_date:
+        print(f"📴 {new_start_date} 이후 데이터가 존재하지 않음 → 백테스트 생략")
+        return existing_df
+
+    # ✅ 새로운 데이터만 계산
+    t0 = time.perf_counter()
+    full_new_df = run_daily_rolling_backtest(df, start_date=new_start_date, test_days=test_days)
+    t1 = time.perf_counter()
+    print(f"⏱️ run_daily_rolling_backtest 소요 시간: {t1 - t0:.2f}초")
+
+    if latest_cached_date is not None:
+        full_new_df = full_new_df[pd.to_datetime(full_new_df["종료일"]) > latest_cached_date]
+
+    if not full_new_df.empty:
+        start_new = full_new_df["종료일"].min()
+        end_new = full_new_df["종료일"].max()
+        print(f"📦 [캐시 병합] 새로 계산된 백테스트 추가: {start_new} ~ {end_new} (총 {len(full_new_df)}건)")
+        updated_df = pd.concat([existing_df, full_new_df], ignore_index=True)
         updated_df.to_feather(cache_path)
         print(f"✅ [캐시 저장] 갱신된 롤링 백테스트 캐시 저장 완료: {cache_path}")
         return updated_df
 
     print(f"📄 [롤링 캐시] 기존 캐시 그대로 사용함 (추가 없음)")
     return existing_df
+
 
     
 # ✅ 전략 추천 페이지
@@ -497,7 +521,7 @@ def recommend():
                 margin=dict(l=30, r=20, t=30, b=0),
                 legend=dict(x=0.01, y=0.99, bgcolor="rgba(0,0,0,0)", borderwidth=0)
             )
-            match_chart_html = pio.to_html(match_chart, full_html=False)
+            match_chart_html = pio.to_html(match_chart, full_html=False, config={"staticPlot": True})
             
             top_details.append({
                 "순번": f"Top{display_index}",
@@ -538,7 +562,7 @@ def recommend():
                 borderwidth=0
             )
         )
-        chart_html = pio.to_html(chart_fig, full_html=False)
+        chart_html = pio.to_html(chart_fig, full_html=False, config={"staticPlot": True})
 
         # ✅ 전략 파라미터 설명 텍스트 추가 (실제 상수값 기반으로 계산)
         def weights_to_str(weights):
