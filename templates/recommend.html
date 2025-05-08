@@ -128,21 +128,21 @@
     </div>
     <div class="col">
       <div class="analysis-card">
-        변동성(20day)
-        <strong>{{ recommend_result["변동성"] }}</strong>
-      </div>
-    </div>
-    <div class="col">
-      <div class="analysis-card">
-        상승비율(20day)
-        <strong>{{ recommend_result["상승비율"] }}</strong>
-      </div>
-    </div>
-    <div class="col">
-      <div class="analysis-card">
         RSI(14)
         <strong>{{ recommend_result["RSI"] }}</strong>
       </div>
+    </div>
+    <div class="col">
+      <div class="analysis-card">
+        ROC(12)
+        <strong>{{ recommend_result["ROC"] }}</strong>
+      </div>
+    </div>
+    <div class="col">
+      <div class="analysis-card">
+        변동성(20day)
+        <strong>{{ recommend_result["변동성"] }}</strong>
+      </div>      
     </div>
   </div>
 </div>
@@ -163,8 +163,13 @@
           <div class="card-body">
             <div class="mb-2 small text-dark">
               📅 성과 확인 기간: {{ item.성과시작 }} ~ {{ item.성과종료 }}<br>
-              🎯 유사도: {{ item.유사도 }}
+              🎯 유사도: 
+              <span style="color: {% if item.유사도.replace('%', '')|float < 70 %}red{% else %}inherit{% endif %};">
+                {{ item.유사도 }}
+              </span>
             </div>
+            
+            
   
             <!-- ✅ 유사 구간 차트 출력 -->
             {% if item.차트 %}
@@ -172,13 +177,13 @@
             {% endif %}
 
             <!-- ✅ 지표 카드 (6개) -->
-            <div class="row row-cols-2 g-2 text-center mt-2">
+            <div class="row row-cols-3 g-2 text-center mt-2">
               <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">정배열<br><strong>{{ item.정배열 }}</strong></div></div>
               <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">기울기<br><strong>{{ item.기울기 }}</strong></div></div>
               <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">이격도<br><strong>{{ item.이격도 }}</strong></div></div>
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">RSI<br><strong>{{ item.RSI }}</strong></div></div>              
+              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">ROC<br><strong>{{ item.ROC }}</strong></div></div>
               <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">변동성<br><strong>{{ item.변동성 }}</strong></div></div>
-              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">상승비율<br><strong>{{ item.상승비율 }}</strong></div></div>
-              <div class="col"><div class="border rounded p-1 bg-white bg-opacity-75 small">RSI<br><strong>{{ item.RSI }}</strong></div></div>
             </div>
   
             <hr class="my-3">

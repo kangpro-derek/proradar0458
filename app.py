@@ -12,6 +12,7 @@ from utils.backtest import run_simple_ttl_backtest, get_price_data
 from utils.backtest import get_price_data, run_daily_rolling_backtest
 from utils.recommend import recommend_best_strategy, calculate_rsi
 from utils.backtest import run_simple_ttl_backtest
+from utils.recommend import calculate_roc
 
 TIERS = 6
 
@@ -51,7 +52,7 @@ def backtest():
 
         end = request.form.get("end", datetime.today().strftime("%Y-%m-%d"))
         # ✅ 종료일을 포함하도록 하루 추가
-        yf_end = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        # yf_end = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")        
         end = min(end, datetime.today().strftime("%Y-%m-%d"))
         selected_end = end  # ✅ 사용자가 입력한 값을 유지할 변수
 
@@ -62,8 +63,8 @@ def backtest():
         extended_start = (start_date_obj - timedelta(days=90)).strftime("%Y-%m-%d")
 
         # ✅ 확장 구간으로 데이터 요청
-        df = get_price_data(symbol, extended_start, yf_end)
-        print(f"📊 확장된 데이터 행 수: {len(df)}")
+        df = get_price_data(symbol, extended_start, end)
+        # print(f"📊 확장된 데이터 행 수: {len(df)}")
 
         # ✅ 이동평균선을 위한 계산
         df["ma20"] = df["close"].rolling(window=20).mean()
@@ -112,7 +113,7 @@ def backtest():
             "기울기": f"{latest['기울기']:.2f}%",
             "이격도": f"{latest['이격도']:.2f}%",
             "변동성": f"{latest['변동성']:.4f}",
-            "상승비율": f"{latest['상승비율']:.2%}",
+            "ROC": f"{latest['ROC']/100:.2%}",
             "RSI": f"{latest['RSI']:.2f}"
         }
 
@@ -302,7 +303,7 @@ def run_recommendation_logic(target_date):
     df["이격도"] = (df["close"] / df["ma20"] - 1) * 100
     df["수익률"] = df["close"].pct_change()
     df["변동성"] = df["수익률"].rolling(window=20).std() * (20 ** 0.5)
-    df["상승비율"] = df["수익률"].rolling(window=20).apply(lambda x: (x > 0).mean(), raw=True)
+    df["ROC"] = calculate_roc(df["close"], period=12)
     df["RSI"] = calculate_rsi(df["close"], period=14)
 
     # ✅ 해당일 기준 최근 30일
@@ -358,7 +359,7 @@ def run_performance_backtests(df, start_date, end_date):
     test_df = df[df["date"] >= start_date].reset_index(drop=True)
     
     # ✅ 지표 제거: 수익률에 영향 없도록
-    test_df = test_df.drop(columns=["ma20", "ma60", "기울기", "정배열", "이격도", "RSI", "변동성", "상승비율"], errors="ignore")
+    test_df = test_df.drop(columns=["ma20", "ma60", "기울기", "정배열", "이격도", "RSI", "변동성", "ROC"], errors="ignore")
 
     # ✅ 전략별 백테스트 실행
     result1 = run_simple_ttl_backtest(test_df, PRO1_WEIGHTS)
@@ -470,7 +471,7 @@ def recommend():
         cutoff_date = (target_date - timedelta(days=30)).date()
         past_df = rolling_df[rolling_df["종료일"] < cutoff_date].copy()
 
-        merge_cols = ["종료일", "기울기", "정배열", "이격도", "상승비율", "변동성", "RSI"]
+        merge_cols = ["종료일", "기울기", "정배열", "이격도", "ROC", "변동성", "RSI"]
         past_df = pd.merge(past_df, df[merge_cols], on="종료일", how="left")
 
         top_matches_df = recommend_best_strategy(recent_window, past_df)
@@ -504,16 +505,39 @@ def recommend():
             matched_row = matched_row.iloc[0]
 
             # ✅ 유사 구간 차트 생성
-            start_date = pd.to_datetime(row["시작일"]).date()
-            end_date = pd.to_datetime(row["종료일"]).date()
-            match_plot_df = df[(df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)].copy()
+           # 차트 범위: 유사구간 시작 ~ 성과구간 종료
+            plot_start = pd.to_datetime(row["시작일"])
+            plot_end = 성과종료  # 이미 datetime 형식일 것
+
+            match_plot_df = df[(df["date"] >= plot_start) & (df["date"] <= plot_end)].copy()
+
+            # 차트 생성
             match_chart = go.Figure()
             match_chart.add_trace(go.Scatter(x=match_plot_df["date"], y=match_plot_df["close"], name="종가", line=dict(color="white")))
             match_chart.add_trace(go.Scatter(x=match_plot_df["date"], y=match_plot_df["ma20"], name="MA20", line=dict(color="orange")))
             match_chart.add_trace(go.Scatter(x=match_plot_df["date"], y=match_plot_df["ma60"], name="MA60", line=dict(color="green")))
 
+            # ✅ 성과 시작일에 세로선 추가
+            match_chart.add_shape(
+                type="line",
+                x0=성과시작,
+                x1=성과시작,
+                y0=0,
+                y1=1,
+                xref="x",
+                yref="paper",
+                line=dict(color="red", width=2, dash="dot")
+            )
+
+            match_chart.add_vrect(
+                x0=성과시작, x1=성과종료,
+                fillcolor="rgba(255, 100, 100, 0.2)",  # 붉은색 반투명
+                layer="below",
+                line_width=0,
+            )
+
             match_chart.update_layout(
-                xaxis=dict(title=''),
+                xaxis=dict(title='', range=[plot_start, plot_end]),
                 yaxis_title="주가 (로그)",
                 yaxis_type="log",
                 template="plotly_dark",
@@ -521,6 +545,7 @@ def recommend():
                 margin=dict(l=30, r=20, t=30, b=0),
                 legend=dict(x=0.01, y=0.99, bgcolor="rgba(0,0,0,0)", borderwidth=0)
             )
+            
             match_chart_html = pio.to_html(match_chart, full_html=False, config={"staticPlot": True})
             
             top_details.append({
@@ -531,7 +556,7 @@ def recommend():
                 "기울기": f"{row['기울기']:.2f}%",
                 "이격도": f"{row['이격도']:.2f}%",
                 "변동성": f"{row['변동성']:.4f}",
-                "상승비율": f"{row['상승비율']:.2%}",
+                "ROC": f"{row['ROC']/100:.2%}",
                 "RSI": f"{row['RSI']:.2f}",
                 "유사도": f"{similarity}%",
                 "성과시작": 성과시작.strftime("%Y-%m-%d"),
@@ -593,7 +618,7 @@ def recommend():
             "기울기": f"{recent_window['기울기'].iloc[-1]:.2f}%",
             "이격도": f"{recent_window['이격도'].iloc[-1]:.2f}%",
             "변동성": f"{recent_window['변동성'].iloc[-1]:.4f}",
-            "상승비율": f"{recent_window['상승비율'].iloc[-1]:.2%}",
+            "ROC": f"{recent_window['ROC'].iloc[-1]/100:.2%}",
             "RSI": f"{recent_window['RSI'].iloc[-1]:.2f}",
             "유사구간": top_matches_df.to_dict(orient="records"),
             "점수": scores,

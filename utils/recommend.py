@@ -4,7 +4,7 @@ from sklearn.preprocessing import StandardScaler
 
 def recommend_best_strategy(recent_df: pd.DataFrame, history_df: pd.DataFrame, golden_cross=None):
     # ✅ 필요한 컬럼 체크
-    required = ["기울기", "ma20", "ma60", "정배열", "이격도", "변동성", "상승비율", "RSI"]
+    required = ["기울기", "ma20", "ma60", "정배열", "이격도", "변동성", "ROC", "RSI"]
     for col in required:
         if col not in recent_df.columns:
             raise ValueError(f"최근 데이터에 '{col}' 컬럼이 없습니다.")
@@ -19,13 +19,13 @@ def recommend_best_strategy(recent_df: pd.DataFrame, history_df: pd.DataFrame, g
         "기울기": recent_df["기울기"].iloc[-1],
         "이격도": recent_df["이격도"].iloc[-1],
         "RSI": recent_df["RSI"].iloc[-1],
-        "변동성": recent_df["변동성"].iloc[-1],
-        "상승비율": recent_df["상승비율"].iloc[-1]
+        "ROC": recent_df["ROC"].iloc[-1],
+        "변동성": recent_df["변동성"].iloc[-1]
     }])
 
     # ✅ 과거 유사 구간 필터링
     history_df = history_df.copy()
-    features = history_df[["정배열", "기울기", "이격도", "RSI", "변동성", "상승비율"]].dropna()
+    features = history_df[["정배열", "기울기", "이격도", "RSI", "ROC", "변동성"]].dropna()
     features = features[features["정배열"] == golden_cross]
     valid_idx = features.index
 
@@ -37,7 +37,7 @@ def recommend_best_strategy(recent_df: pd.DataFrame, history_df: pd.DataFrame, g
     scaled_history = scaler.fit_transform(features.drop("정배열", axis=1))
     scaled_recent = scaler.transform(recent_features.drop("정배열", axis=1))
 
-    weights = np.array([2.0, 1.5, 1.2, 0.5, 0.3])  # 중요도 반영
+    weights = np.array([2.0, 1.5, 1.2, 0.8, 0.6])  # 중요도 반영
     diff = scaled_history - scaled_recent
     distances = np.sqrt(np.sum((diff * weights) ** 2, axis=1))
 
@@ -46,6 +46,8 @@ def recommend_best_strategy(recent_df: pd.DataFrame, history_df: pd.DataFrame, g
     result["distance"] = distances
     result["distance_norm"] = distances / distances.max()
     result["similarity"] = (1 - result["distance_norm"]) * 100
+    # result["similarity"] = (1 - np.sqrt(result["distance_norm"])) * 100
+
 
     # ✅ 중복 제거 (시작일 기준 7일 이내 제거)
     result = result.sort_values("distance").reset_index(drop=True)
@@ -72,3 +74,17 @@ def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     return rsi
 
 
+def calculate_roc(series: pd.Series, period: int = 12) -> pd.Series:
+    prev = series.shift(period)
+    roc = (series - prev) / prev.replace(0, np.nan) * 100
+
+    # # 디버깅 출력 - 처음 10개만 출력
+    # debug_df = pd.DataFrame({
+    #     "현재가": series,
+    #     f"{period}일 전 가격": prev,
+    #     "ROC": roc
+    # })
+    # print("🔍 ROC 계산 샘플 (상위 10개):")
+    # print(debug_df.tail(10))
+
+    return roc

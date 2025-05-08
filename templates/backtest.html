@@ -35,8 +35,9 @@
       <!-- 종목코드 -->
       <div class="col-md-3">
         <label class="form-label">종목코드</label>
-        <input type="text" name="symbol" value="{{ selected_symbol }}" class="form-control" required>
+        <input type="text" name="symbol" value="{{ selected_symbol }}" class="form-control" required readonly>
       </div>
+    
   
       <!-- 시작일 -->
       <div class="col-md-3">
@@ -107,20 +108,21 @@
     </div>
     <div class="col">
       <div class="bg-light bg-opacity-25 rounded py-1">
-        <div class="small">변동성(20day)</div>
-        <div class="fw-bold">{{ feature_summary["변동성"] }}</div>
-      </div>
-    </div>
-    <div class="col">
-      <div class="bg-light bg-opacity-25 rounded py-1">
-        <div class="small">상승비율(20day)</div>
-        <div class="fw-bold">{{ feature_summary["상승비율"] }}</div>
-      </div>
-    </div>
-    <div class="col">
-      <div class="bg-light bg-opacity-25 rounded py-1">
         <div class="small">RSI(14)</div>
         <div class="fw-bold">{{ feature_summary["RSI"] }}</div>
+      </div>
+      
+    </div>
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">ROC(12)</div>
+        <div class="fw-bold">{{ feature_summary["ROC"] }}</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="bg-light bg-opacity-25 rounded py-1">
+        <div class="small">변동성(20day)</div>
+        <div class="fw-bold">{{ feature_summary["변동성"] }}</div>
       </div>
     </div>
   </div>

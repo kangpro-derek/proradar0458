@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 from datetime import datetime
+import pytz
 import os
 import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
@@ -12,10 +13,22 @@ from alpha_vantage.timeseries import TimeSeries
 from alpha_vantage.timeseries import TimeSeries
 import pandas as pd
 import os
+from utils.recommend import calculate_roc
 
-API_KEY = "AP68Y6LGDXSHYQEP"
+API_KEYS = ["ONB35B97BRJ6G3T8", "AP68Y6LGDXSHYQEP"]
+# API 키 순차적으로 사용하기 위한 인덱스
+api_key_index = 0
+
+# 한국 시간 설정 (UTC+9)
+KST = pytz.timezone('Asia/Seoul')
+
 CALL_COUNT = 0
 MAX_CALLS_PER_DAY = 490  # Alpha Vantage 무료 플랜 기준 (여유 포함)
+
+def get_next_api_key():
+    global api_key_index
+    api_key_index = (api_key_index + 1) % len(API_KEYS)
+    return API_KEYS[api_key_index]
 
 def check_api_quota():
     global CALL_COUNT
@@ -52,13 +65,14 @@ def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-
 def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
     cache_dir = "cache"
     os.makedirs(cache_dir, exist_ok=True)
     cache_file = os.path.join(cache_dir, f"{symbol}.csv")
+    last_download_file = os.path.join(cache_dir, f"{symbol}_last_downloaded.txt")  # 마지막 다운로드 날짜 파일 경로
 
-    ts = TimeSeries(key=API_KEY, output_format="pandas")
+    # 처음 API_KEY로 TimeSeries 객체 생성
+    ts = TimeSeries(key=get_next_api_key(), output_format="pandas")
 
     # ✅ 캐시 로드
     if os.path.exists(cache_file):
@@ -66,28 +80,26 @@ def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
     else:
         cached_df = pd.DataFrame(columns=["date", "close", "open", "high", "low", "volume"])
 
+    # ✅ 마지막 다운로드 날짜 로드
+    if os.path.exists(last_download_file):
+        with open(last_download_file, 'r') as f:
+            last_downloaded_date = f.read().strip()
+            last_downloaded_date = pd.to_datetime(last_downloaded_date)
+    else:
+        last_downloaded_date = None
+
     # ✅ 날짜 설정
     start_dt = pd.to_datetime(start)
     end_dt = pd.to_datetime(end)
 
-    # ✅ 오늘 기준 미국 시장의 최신 거래일 예상 (UTC 기준 하루 전)
-    today_us = datetime.utcnow().date()
-    last_possible_date = today_us - timedelta(days=1)
+    # ✅ 캐시 범위 확인
+    range_cached = is_range_cached(start_dt, end_dt, cached_df)
 
-    if end_dt.date() > last_possible_date:
-        print(f"⏳ 요청 종료일 {end_dt.date()}은 아직 데이터가 없을 가능성이 있음 (최대: {last_possible_date})")
-        if not cached_df.empty:
-            cached_df["date"] = pd.to_datetime(cached_df["date"], errors="coerce")
-            max_cached = cached_df["date"].dropna().max()
-            if max_cached >= start_dt:
-                print(f"✅ 캐시 내 최종일 {max_cached.date()}이므로 재요청 없이 캐시만 사용")
-                end_dt = max_cached  # 요청 범위 줄이기
-                
-    # ✅ 부족한 날짜 있으면 다운로드
-    if not is_range_cached(start_dt, end_dt, cached_df):
-        print("🌐 Alpha Vantage로 부족한 데이터 다운로드")
-        check_api_quota()
+    # ✅ 다운로드 여부 판단
+    if not range_cached and (last_downloaded_date is None or last_downloaded_date != end_dt):
+        print("🌐 Alpha Vantage로 부족한 데이터 다운로드")  # 로그 이동
 
+        # 데이터를 다운로드해야 하는 경우
         try:
             fetched_df, _ = ts.get_daily(symbol=symbol, outputsize="full")
         except Exception as e:
@@ -102,8 +114,14 @@ def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
         fetched_df["date"] = pd.to_datetime(fetched_df["date"])
         fetched_df = fetched_df[["date", "close", "open", "high", "low", "volume"]].sort_values("date")
 
+        # 캐시 업데이트
         cached_df = pd.concat([cached_df, fetched_df]).drop_duplicates(subset="date").sort_values("date")
         cached_df.to_csv(cache_file, index=False)
+
+        # 마지막 다운로드 날짜를 실제 요청한 날짜 (end_dt)로 기록
+        with open(last_download_file, 'w') as f:
+            f.write(str(end_dt.date()))  # 마지막 다운로드 날짜 업데이트
+        
         print(f"✅ 병합 캐시 저장 완료: {cache_file}")
 
     full_df = cached_df.copy()
@@ -118,10 +136,13 @@ def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
     result_df["이격도"] = (result_df["close"] / result_df["ma20"] - 1) * 100
     result_df["수익률"] = result_df["close"].pct_change()
     result_df["변동성"] = result_df["수익률"].rolling(window=20).std() * (20 ** 0.5)
-    result_df["상승비율"] = result_df["수익률"].rolling(window=20).apply(lambda x: (x > 0).mean(), raw=True)
+    result_df["ROC"] = calculate_roc(result_df["close"], period=12)
     result_df["RSI"] = calculate_rsi(result_df["close"])
 
     return result_df.reset_index(drop=True)
+
+
+
 
 
 def log_backtest_debug(name, df, result, initial_capital, buy_discount, sell_premium):
