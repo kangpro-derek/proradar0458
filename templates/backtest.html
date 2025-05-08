@@ -1,33 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-<!-- 모바일 반응형을 위한 필수 태그 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Slate 부트스와치 테마 (다크 스타일) -->
-<link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/solar/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  
-</head>
+{% extends 'base.html' %}
+
+{% block content %}
 
 <body class="container py-4">
 
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 rounded px-3">
-    <a class="navbar-brand fw-bold" href="{{ url_for('backtest') }}">📡 떨사오팔 Pro 레이더</a>
-    
-    <!-- ✅ 메뉴 항목 -->
-     <!-- ✅ 항상 보이게 -->
-      <div class="navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-3">
-          <li class="nav-item">
-            <a class="nav-link {% if request.path == '/backtest' %}active bg-info{% endif %}" href="{{ url_for('backtest') }}">📈 백테스트</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.path == '/recommend' %}active bg-info{% endif %}" href="{{ url_for('recommend') }}">🎯 전략 추천</a>
-          </li>
-        </ul>
-      </div>
-  </nav>
-  
 
   <form method="post" class="mb-4">
     <div class="row g-2 align-items-end">
@@ -248,3 +225,4 @@
 
 
 
+{% endblock %}

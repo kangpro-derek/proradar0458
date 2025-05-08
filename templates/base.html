@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/solar/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Google AdSense 광고 코드 삽입 -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9122655725558149"
+     crossorigin="anonymous"></script>
+    
+</head>
+<body>
+    <!-- 네비게이션 바 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 rounded px-3">
+        <a class="navbar-brand fw-bold" href="{{ url_for('backtest') }}">📡 떨사오팔 Pro 레이더</a>
+        <div class="navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-3">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path == '/backtest' %}active bg-info{% endif %}" href="{{ url_for('backtest') }}">📈 백테스트</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path == '/recommend' %}active bg-info{% endif %}" href="{{ url_for('recommend') }}">🎯 전략 추천</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 페이지 콘텐츠가 들어가는 부분 -->
+    {% block content %}
+    {% endblock %}
+
+</body>
+</html>
