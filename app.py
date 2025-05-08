@@ -673,10 +673,44 @@ def recommend():
         )
 
 
+from utils.stat import run_or_load_yearly_statistics  # 👈 아까 만든 함수 위치
 
 @app.route("/stats")
-def stats():
-    return render_template("stats.html")
+def stats():    
+         
+    # ✅ 연도별 백테스트 실행 or 캐시 로드
+    yearly_df = run_or_load_yearly_statistics()
+
+    pro1_stats = yearly_df[["연도", "Pro1_수익률", "Pro1_MDD"]].rename(
+        columns={"Pro1_수익률": "수익률", "Pro1_MDD": "MDD"}
+    ).to_dict(orient="records")
+
+    pro2_stats = yearly_df[["연도", "Pro2_수익률", "Pro2_MDD"]].rename(
+        columns={"Pro2_수익률": "수익률", "Pro2_MDD": "MDD"}
+    ).to_dict(orient="records")
+
+    pro3_stats = yearly_df[["연도", "Pro3_수익률", "Pro3_MDD"]].rename(
+        columns={"Pro3_수익률": "수익률", "Pro3_MDD": "MDD"}
+    ).to_dict(orient="records")
+
+    return render_template("stats.html",
+                           pro1_stats=pro1_stats,
+                           pro2_stats=pro2_stats,
+                           pro3_stats=pro3_stats)
+
+
+@app.route("/api/stats/yearly/<int:year>")
+def api_yearly_chart(year):
+    cache_path = f"cache/stats_{year}.csv"
+    if not os.path.exists(cache_path):
+        return {"error": "해당 연도의 캐시 파일이 없습니다."}, 404
+
+    df = pd.read_csv(cache_path, parse_dates=["date"])
+    df["portfolio_value"] = df["portfolio_value"].round(2)
+    df["drawdown"] = (df["drawdown"] * 100).round(2)
+
+    return df.to_dict(orient="records")
+
 
 @app.route("/info")
 def info():
