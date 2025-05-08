@@ -391,53 +391,56 @@ def evaluate_strategy(row, df):
     }
     
 def load_or_run_rolling_cache(symbol, df, start_date, test_days):
-    cache_path = f"cache/{symbol}_rolling.feather"
+    cache_dir = "cache"
+    os.makedirs(cache_dir, exist_ok=True)
 
+    cache_path = os.path.join(cache_dir, f"{symbol}_rolling.csv")
+    last_bt_path = os.path.join(cache_dir, f"{symbol}_rolling_last.txt")  # ← 기록용
+
+    # ✅ 기존 캐시 로딩
     if os.path.exists(cache_path):
-        existing_df = pd.read_feather(cache_path)
-        existing_dates = set(existing_df["종료일"])
+        existing_df = pd.read_csv(cache_path, parse_dates=["종료일"])
         print(f"📁 [롤링 캐시] 기존 캐시 로딩: {cache_path}")
     else:
         existing_df = pd.DataFrame()
-        existing_dates = set()
         print(f"📁 [롤링 캐시] 새 캐시 파일 생성 예정: {cache_path}")
 
-    # ✅ 최신 날짜 이후만 백테스트
-    if not existing_df.empty:
-        latest_cached_date = pd.to_datetime(existing_df["종료일"]).max()
-        new_start_date = (latest_cached_date + timedelta(days=1)).strftime("%Y-%m-%d")
-        print(f"⏳ 최신 캐시 종료일: {latest_cached_date.date()} → 새로운 백테스트 시작일: {new_start_date}")
+    # ✅ 마지막 백테스트 종료일 불러오기 (없으면 start_date 사용)
+    if os.path.exists(last_bt_path):
+        with open(last_bt_path, "r") as f:
+            last_bt_str = f.read().strip()
+            last_backtested_date = pd.to_datetime(last_bt_str)
+            print(f"📜 마지막 백테스트 종료일: {last_backtested_date.date()}")
     else:
-        latest_cached_date = None
-        new_start_date = start_date
-        print(f"🚀 캐시 없음 → 전체 구간 시작일로 백테스트 시작: {new_start_date}")
+        last_backtested_date = pd.to_datetime(start_date)
+        print(f"🆕 기록 없음 → 시작일 사용: {last_backtested_date.date()}")
 
-    # ✅ 더 이상 계산할 날짜가 없다면 종료
-    df_max_date = df["date"].max().date()
-    if pd.to_datetime(new_start_date).date() > df_max_date:
-        print(f"📴 {new_start_date} 이후 데이터가 존재하지 않음 → 백테스트 생략")
-        return existing_df
-
-    # ✅ 새로운 데이터만 계산
+    # ✅ 백테스트 수행
     t0 = time.perf_counter()
-    full_new_df = run_daily_rolling_backtest(df, start_date=new_start_date, test_days=test_days)
+    full_new_df = run_daily_rolling_backtest(df, start_date=last_backtested_date.strftime("%Y-%m-%d"), test_days=test_days)
     t1 = time.perf_counter()
     print(f"⏱️ run_daily_rolling_backtest 소요 시간: {t1 - t0:.2f}초")
 
-    if latest_cached_date is not None:
-        full_new_df = full_new_df[pd.to_datetime(full_new_df["종료일"]) > latest_cached_date]
+    # ✅ 새로운 데이터가 없다면 종료
+    if full_new_df.empty:
+        print("📄 [롤링 캐시] 새로운 백테스트 결과 없음")
+        return existing_df
 
-    if not full_new_df.empty:
-        start_new = full_new_df["종료일"].min()
-        end_new = full_new_df["종료일"].max()
-        print(f"📦 [캐시 병합] 새로 계산된 백테스트 추가: {start_new} ~ {end_new} (총 {len(full_new_df)}건)")
-        updated_df = pd.concat([existing_df, full_new_df], ignore_index=True)
-        updated_df.to_feather(cache_path)
-        print(f"✅ [캐시 저장] 갱신된 롤링 백테스트 캐시 저장 완료: {cache_path}")
-        return updated_df
+    # ✅ 캐시 병합 및 저장
+    updated_df = pd.concat([existing_df, full_new_df], ignore_index=True)
+    updated_df["종료일"] = pd.to_datetime(updated_df["종료일"], errors="coerce")
+    updated_df = updated_df.drop_duplicates(subset=["종료일"]).sort_values("종료일")
+    updated_df.to_csv(cache_path, index=False)
+    print(f"✅ [캐시 저장] 병합된 캐시 저장 완료: {cache_path}")
 
-    print(f"📄 [롤링 캐시] 기존 캐시 그대로 사용함 (추가 없음)")
-    return existing_df
+    # ✅ 마지막 백테스트 종료일 갱신
+    latest_done = updated_df["종료일"].max()
+    with open(last_bt_path, "w") as f:
+        f.write(latest_done.strftime("%Y-%m-%d"))
+    print(f"📌 [기록 갱신] 마지막 백테스트 종료일 → {latest_done.date()}")
+
+    return updated_df
+
 
 
     
@@ -468,17 +471,30 @@ def recommend():
             return render_template("recommend.html", error="최근 30일 데이터가 부족합니다.", selected_date=selected_date)
 
         rolling_df = load_or_run_rolling_cache("SOXL", df, start_date="2012-01-01", test_days=30)
-        cutoff_date = (target_date - timedelta(days=30)).date()
+        # cutoff_date = (target_date - timedelta(days=30)).date()
+        # past_df = rolling_df[rolling_df["종료일"] < cutoff_date].copy()
+        cutoff_date = pd.to_datetime(target_date - timedelta(days=30))
         past_df = rolling_df[rolling_df["종료일"] < cutoff_date].copy()
 
         merge_cols = ["종료일", "기울기", "정배열", "이격도", "ROC", "변동성", "RSI"]
+        
+        # 🔑 '종료일' 컬럼 타입 일치시키기
+        df["종료일"] = pd.to_datetime(df["종료일"], errors="coerce")
+        past_df["종료일"] = pd.to_datetime(past_df["종료일"], errors="coerce")
+
         past_df = pd.merge(past_df, df[merge_cols], on="종료일", how="left")
 
         top_matches_df = recommend_best_strategy(recent_window, past_df)
-
+        print("🔍 유사 구간 개수:", len(top_matches_df))
+        print(top_matches_df.head())  # 첫 몇 개 출력
+        
         with ThreadPoolExecutor(max_workers=3) as executor:
             score_rows = list(executor.map(lambda row: evaluate_strategy(row, df), top_matches_df.itertuples(index=False, name="Row")))
 
+        print("📊 추천 유사 구간 평가 결과:")
+        for row in score_rows:
+            print(row)
+    
         score_df = pd.DataFrame(score_rows)
         # ✅ 방식 4번: 점수 = 수익률 × exp(MDD)
         def calc_exp_score(row, prefix):
@@ -493,13 +509,21 @@ def recommend():
         }
         best_strategy = max(scores, key=scores.get)
 
+        # ✅ 날짜 형식 통일
+        score_df["시작일"] = pd.to_datetime(score_df["시작일"]).dt.date
+        score_df["종료일"] = pd.to_datetime(score_df["종료일"]).dt.date
+
         top_details = []
         for display_index, (_, row) in enumerate(top_matches_df.iterrows(), start=1):
             similarity = round(row["similarity"], 2)
             성과시작 = pd.to_datetime(row["종료일"]) + timedelta(days=1)
             성과종료 = 성과시작 + timedelta(days=30)
 
-            matched_row = score_df[(score_df["시작일"] == pd.to_datetime(row["시작일"]).date()) & (score_df["종료일"] == pd.to_datetime(row["종료일"]).date())]
+            matched_row = score_df[
+                (score_df["시작일"] == pd.to_datetime(row["시작일"]).date()) &
+                (score_df["종료일"] == pd.to_datetime(row["종료일"]).date())
+            ]
+            
             if matched_row.empty:
                 continue
             matched_row = matched_row.iloc[0]
