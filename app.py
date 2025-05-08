@@ -485,15 +485,15 @@ def recommend():
         past_df = pd.merge(past_df, df[merge_cols], on="종료일", how="left")
 
         top_matches_df = recommend_best_strategy(recent_window, past_df)
-        print("🔍 유사 구간 개수:", len(top_matches_df))
-        print(top_matches_df.head())  # 첫 몇 개 출력
+        # print("🔍 유사 구간 개수:", len(top_matches_df))
+        # print(top_matches_df.head())  # 첫 몇 개 출력
         
         with ThreadPoolExecutor(max_workers=3) as executor:
             score_rows = list(executor.map(lambda row: evaluate_strategy(row, df), top_matches_df.itertuples(index=False, name="Row")))
 
-        print("📊 추천 유사 구간 평가 결과:")
-        for row in score_rows:
-            print(row)
+        # print("📊 추천 유사 구간 평가 결과:")
+        # for row in score_rows:
+        #     print(row)
     
         score_df = pd.DataFrame(score_rows)
         # ✅ 방식 4번: 점수 = 수익률 × exp(MDD)
@@ -590,6 +590,11 @@ def recommend():
                 "Pro3": {"수익률": f"{matched_row['Pro3_수익률']:.1f}%", "MDD": f"{matched_row['Pro3_mdd']:.1f}%"},
                 "차트": match_chart_html
             })
+                        
+        # 📌 날짜를 datetime 객체로 변환하여 템플릿에서 strftime 안전하게 사용
+        for item in top_details:
+            item["시작일"] = pd.to_datetime(item["시작일"])
+            item["종료일"] = pd.to_datetime(item["종료일"])
             
         # ✅ 분석 구간 차트 생성
         plot_df = recent_window.copy()
@@ -666,6 +671,19 @@ def recommend():
         chart_html=None,        
         date_mode="today"  # ✅ 기본값 설정
         )
+
+
+
+@app.route("/stats")
+def stats():
+    return render_template("stats.html")
+
+@app.route("/info")
+def info():
+    return render_template("info.html")
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -22,9 +22,16 @@
                 <li class="nav-item">
                     <a class="nav-link {% if request.path == '/recommend' %}active bg-info{% endif %}" href="{{ url_for('recommend') }}">🎯 전략 추천</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path == '/stats' %}active bg-info{% endif %}" href="{{ url_for('stats') }}">📊 통계</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path == '/info' %}active bg-info{% endif %}" href="{{ url_for('info') }}">ℹ️ Info</a>
+                </li>
             </ul>
         </div>
     </nav>
+
 
     <!-- 페이지 콘텐츠가 들어가는 부분 -->
     {% block content %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<body class="container py-4">
+
+  <h2 class="fw-bold text-white mb-4">ℹ️ 떨사오팔 Pro 레이더 Info</h2>
+
+  <div class="bg-dark text-light p-4 rounded shadow-sm">
+
+    <h4 class="fw-bold text-info">📡 떨사오팔 Pro 레이더는?</h4>
+    <p>떨사오팔을 더 강력하게 도와주는 도구입니다.</p>
+
+    <hr>
+
+    <h4 class="fw-bold text-info">🤔 떨사오팔이란?</h4>
+        <li>시드를 분할하여 <strong>떨어지면 사고 오르면 파는</strong> 전략입니다.</li>
+        <li>전략을 고안하신 분은 <strong>[이서방v]</strong>님입니다.</li>
+        <li>자세한 방법과 문의는 네이버 카페 <a href="https://cafe.naver.com/songspread" target="_blank" class="link-light">[미국주식 퀀트투자]</a>를 방문해 주세요.</p></li>
+
+    <hr>
+
+    <h4 class="fw-bold text-info">⚙️ Pro1 / Pro2 / Pro3 전략이란?</h4>
+    <!-- ✅ Pro 전략별 카드 -->
+<div class="row row-cols-1 row-cols-md-3 g-4 mt-1">
+
+    <!-- Pro1 -->
+    <div class="col">
+      <div class="card bg-light text-dark h-100">
+        <div class="card-header fw-bold">떨사오팔 Pro1</div>
+        <div class="card-body">
+          <p><strong>분할 비율</strong> 5.0% / 10.0% / 15.0% / 20.0% / 25.0% / 25.0%</p>
+          <div class="row row-cols-2 g-2">
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">6분할 10일 손절</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">손절 시 매수 O</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">수익금 재투자 X</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">정액매수 X</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">매수 기준 -0.01%</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">매도 기준 +0.01%</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <!-- Pro2 -->
+    <div class="col">
+      <div class="card bg-light text-dark h-100">
+        <div class="card-header fw-bold">떨사오팔 Pro2</div>
+        <div class="card-body">
+          <p><strong>분할 비율</strong> 10.0% / 15.0% / 20.0% / 25.0% / 20.0% / 10.0%</p>
+          <div class="row row-cols-2 g-2">
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">6분할 10일 손절</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">손절 시 매수 O</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">수익금 재투자 X</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">정액매수 X</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">매수 기준 -0.01%</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">매도 기준 +0.01%</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <!-- Pro3 -->
+    <div class="col">
+      <div class="card bg-light text-dark h-100">
+        <div class="card-header fw-bold">떨사오팔 Pro3</div>
+        <div class="card-body">
+          <p><strong>분할 비율</strong> 16.7% / 16.7% / 16.7% / 16.7% / 16.7% / 16.7%</p>
+          <div class="row row-cols-2 g-2">
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">6분할 10일 손절</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">손절 시 매수 O</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">수익금 재투자 X</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">정액매수 X</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">매수 기준 -0.01%</div></div>
+            <div class="col"><div class="border rounded p-1 text-center small bg-white">매도 기준 +0.01%</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+  </div>
+  
+    <ul>
+      <li><strong>Pro1</strong> – 보수적인 전략</li>
+      <li><strong>Pro2</strong> – 중간 전략</li>
+      <li><strong>Pro3</strong> – 원론과 가장 유사한 전략</li>
+    </ul>
+    <p>일반적으로 Pro3이 성과가 좋지만, <strong>한 번의 큰 손실</strong>에 대비하여 Pro1이나 Pro2를 사용할 수 있습니다.<br>
+    수익보다 중요한 것은 <strong>손실을 줄이는 것</strong>입니다.</p>
+
+    <hr>
+    
+
+    <h4 class="fw-bold text-info">📐 전략 설정 이유</h4>
+    <ul>
+      <li><strong>6분할 / 10일 손절</strong> → 백테스트 결과 가장 효율적인 값으로 판단됨</li>
+      <li><strong>손절 시 매수</strong> → 급격한 낙폭 대응 (예: 2025년 4월 트럼프 관세 이슈 등)</li>
+      <li><strong>수익금 재투자 X</strong> → 단리 전략, 리스크 최소화 목적 (복리투자는 수익금을 이용해서 언제든지 가능)</li>
+      <li><strong>정액 매수</strong> → 손실된 시드를 보완, MDD 감소 효과</li>
+      <li><strong>매수/매도 기준 0.01%</strong> → 빠른 순환 전략, MDD 감소와 일치</li>
+    </ul>
+
+    <hr>
+
+    <h4 class="fw-bold text-info">💡 전략 추천 기능 사용법</h4>
+    <p>
+        <li>새로운 사이클을 시작할 때 <strong>추천 전략</strong>을 확인하고 선택하세요.</li>
+        <li>반드시 추천된 전략을 따를 필요는 없지만, <strong>유사 구간의 성과를 참고</strong>하여 결정하는 것이 좋습니다.</li>
+        <li>사이클 진행 중에는 전략을 변경하지 않습니다.</li>
+        <li>사이클이 종료되면 <strong>다시 추천을 확인</strong>하고 새로운 전략으로 시작하세요 (예: 1티어 매도 시).</li>
+    </p>
+
+<!-- ✅ 후원하기 섹션 -->
+<div class="p-4 rounded mt-4 bg-secondary text-white">
+    <h4 class="fw-bold mb-3">☕ 후원하기</h4>
+    <p>
+       레이더가 투자에 도움이 되셨다면 커피 한 잔으로 응원해주세요. 🙏<br>
+       서버 비용 충당 및 프로젝트 개발에 큰 힘이 됩니다!<br>      
+    </p>    
+    <div class="row row-cols-1 row-cols-md-2 g-4">
+      <div class="col text-center">
+        <p class="mb-1">💙 토스로 후원</p>
+        <img src="{{ url_for('static', filename='img/donate_toss_qr.png') }}" class="img-fluid rounded shadow" style="max-width: 160px;" alt="Toss QR">
+      </div>
+      <div class="col text-center">
+        <p class="mb-1">🟡 카카오페이로 후원</p>
+        <img src="{{ url_for('static', filename='img/donate_kakao_qr.png') }}" class="img-fluid rounded shadow" style="max-width: 160px;" alt="KakaoPay QR">
+      </div>
+    </div>
+  </div>
+  
+  
+
+
+  </div>
+
+</body>
+{% endblock %}

@@ -137,7 +137,7 @@
       <div class="col">
         <div class="card h-100 text-dark bg-light">
           <div class="card-header fw-bold">
-            {{ item.순번 }}: {{ item.시작일 }} ~ {{ item.종료일 }}
+            {{ item.시작일.strftime("%Y-%m-%d") }} ~ {{ item.종료일.strftime("%Y-%m-%d") }}
           </div>
           <div class="card-body">
             <div class="mb-2 small text-dark">
