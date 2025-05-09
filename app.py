@@ -117,8 +117,8 @@ def backtest():
         chart_fig.update_layout(
             title=title,
             xaxis=dict(title=''),  # 하단 라벨 제거
-            # yaxis=dict(title=symbol, type="log"),  # ✅ y축을 로그 스케일로 설정
-            yaxis=dict(title=symbol),
+            yaxis=dict(title=symbol, type="log"),  # ✅ y축을 로그 스케일로 설정
+            # yaxis=dict(title=symbol),
             template="plotly_dark",
             height=300,
             margin=dict(l=40, r=20, t=40, b=0),  # ✅ 마진 조정: 상하좌우

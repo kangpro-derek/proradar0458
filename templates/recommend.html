@@ -287,7 +287,7 @@
     const hasResults = {{ 'true' if recommend_result else 'false' }};
 
     form.addEventListener("submit", function (event) {
-      const symbol = form.querySelector("input[name='symbol']").value;
+      const symbol = form.querySelector("select[name='symbol']").value;
       const selectedMode = form.querySelector("input[name='date_mode']:checked").value;
       const selectedDate = form.querySelector("input[name='custom_date']").value;
 

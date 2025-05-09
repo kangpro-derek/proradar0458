@@ -206,7 +206,7 @@
     const hasResults = {{ 'true' if results else 'false' }};
 
     form.addEventListener("submit", function (event) {
-      const symbol = form.querySelector("input[name='symbol']").value;
+      const symbol = form.querySelector("select[name='symbol']").value;
       const start = form.querySelector("input[name='start']").value;
       const end = form.querySelector("input[name='end']").value;
 
