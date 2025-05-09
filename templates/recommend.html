@@ -281,17 +281,20 @@
     const recommendSpinner = document.getElementById("recommend-spinner");
 
     // ✅ 서버에서 전달받은 이전 입력값
+    let lastSymbol = "{{ selected_symbol }}";
     const lastDateMode = "{{ 'today' if selected_date == today else 'custom' }}";
     const lastCustomDate = "{{ selected_date }}";
     const hasResults = {{ 'true' if recommend_result else 'false' }};
 
     form.addEventListener("submit", function (event) {
+      const symbol = form.querySelector("input[name='symbol']").value;
       const selectedMode = form.querySelector("input[name='date_mode']:checked").value;
       const selectedDate = form.querySelector("input[name='custom_date']").value;
 
       // ✅ 결과가 있고, 이전과 동일한 입력이면 실행 막기
       if (
         hasResults &&
+        symbol === lastSymbol &&
         selectedMode === lastDateMode &&
         (selectedMode === "today" || selectedDate === lastCustomDate)
       ) {

@@ -107,9 +107,15 @@ def backtest():
         chart_fig.add_trace(go.Scatter(x=plot_df["date"], y=plot_df["ma20"], name="MA20", line=dict(color="orange")))
         chart_fig.add_trace(go.Scatter(x=plot_df["date"], y=plot_df["ma60"], name="MA60", line=dict(color="green")))
 
+        # ✅ 차트 날짜 범위 추출
+        start_date = plot_df["date"].min()
+        end_date = plot_df["date"].max()
+
+        # ✅ 타이틀 생성
+        title = f"📈 {symbol} 차트 (logscale) {start_date} ~ {end_date}"
 
         chart_fig.update_layout(
-            title=f"📈 {symbol} 기간 차트 (logscale)",
+            title=title,
             xaxis=dict(title=''),  # 하단 라벨 제거
             # yaxis=dict(title=symbol, type="log"),  # ✅ y축을 로그 스케일로 설정
             yaxis=dict(title=symbol),

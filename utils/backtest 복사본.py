@@ -141,7 +141,6 @@ def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             data = response.json()
-            
         except Exception as e:
             print(f"❌ Tiingo 다운로드 실패: {e}")
             return pd.DataFrame()
@@ -155,8 +154,7 @@ def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
         if "adjClose" not in df.columns or df["adjClose"].isnull().all():
             print(f"⚠️ {symbol} 은 adjClose(조정 종가)를 제공하지 않습니다.")
 
-        # ✅ 조정된 값만 추출 (원본 말고 adj 값 기반으로)
-        df = df[["date", "adjClose", "adjOpen", "adjHigh", "adjLow", "adjVolume"]].rename(columns={
+        df = df.rename(columns={
             "adjClose": "close",
             "adjOpen": "open",
             "adjHigh": "high",
