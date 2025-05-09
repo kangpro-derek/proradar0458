@@ -274,8 +274,8 @@ def find_mdd_period(records):
     return peak_idx, trough_idx
 
 def run_recommendation_logic(target_date):
-    # ✅ 종료일 포함되도록 1일 더
-    end_date = (datetime.strptime(target_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    end_date = (datetime.strptime(target_date, "%Y-%m-%d")).strftime("%Y-%m-%d")
     extended_start = (datetime.strptime(target_date, "%Y-%m-%d") - timedelta(days=90)).strftime("%Y-%m-%d")
 
     df = get_price_data("SOXL", extended_start, end_date)
@@ -395,7 +395,7 @@ def load_or_run_rolling_cache(symbol, df, start_date, test_days):
     os.makedirs(cache_dir, exist_ok=True)
 
     cache_path = os.path.join(cache_dir, f"{symbol}_rolling.csv")
-    last_bt_path = os.path.join(cache_dir, f"{symbol}_rolling_last.txt")  # ← 기록용
+    last_bt_path = os.path.join(cache_dir, f"{symbol}_rolling_last.txt")  # ← 마지막 백테스트 기록
 
     # ✅ 기존 캐시 로딩
     if os.path.exists(cache_path):
@@ -405,19 +405,32 @@ def load_or_run_rolling_cache(symbol, df, start_date, test_days):
         existing_df = pd.DataFrame()
         print(f"📁 [롤링 캐시] 새 캐시 파일 생성 예정: {cache_path}")
 
-    # ✅ 마지막 백테스트 종료일 불러오기 (없으면 start_date 사용)
+    # ✅ 가격 데이터의 마지막 날짜 확인
+    df["date"] = pd.to_datetime(df["date"])
+    latest_price_date = df["date"].max()
+
+    # ✅ 마지막 백테스트 종료일 불러오기
     if os.path.exists(last_bt_path):
         with open(last_bt_path, "r") as f:
             last_bt_str = f.read().strip()
             last_backtested_date = pd.to_datetime(last_bt_str)
             print(f"📜 마지막 백테스트 종료일: {last_backtested_date.date()}")
+
+        # ✅ 백테스트가 최신까지 되어 있지 않다면 → 다시 실행
+        if last_backtested_date < latest_price_date:
+            start_bt_date = (latest_price_date - timedelta(days=30)).strftime("%Y-%m-%d")
+            print(f"🆕 새로운 데이터 있음 → {start_bt_date}부터 백테스트 실행")
+        else:
+            print("📭 최신까지 백테스트 완료 → 생략")
+            return existing_df
     else:
         last_backtested_date = pd.to_datetime(start_date)
-        print(f"🆕 기록 없음 → 시작일 사용: {last_backtested_date.date()}")
+        start_bt_date = start_date
+        print(f"🆕 기록 없음 → 시작일 사용: {start_bt_date}")
 
     # ✅ 백테스트 수행
     t0 = time.perf_counter()
-    full_new_df = run_daily_rolling_backtest(df, start_date=last_backtested_date.strftime("%Y-%m-%d"), test_days=test_days)
+    full_new_df = run_daily_rolling_backtest(df, start_date=start_bt_date, test_days=test_days)
     t1 = time.perf_counter()
     print(f"⏱️ run_daily_rolling_backtest 소요 시간: {t1 - t0:.2f}초")
 
@@ -442,7 +455,6 @@ def load_or_run_rolling_cache(symbol, df, start_date, test_days):
     return updated_df
 
 
-
     
 # ✅ 전략 추천 페이지
 @app.route("/recommend", methods=["GET", "POST"])
@@ -459,7 +471,7 @@ def recommend():
             selected_date = request.form.get("custom_date") or selected_date
 
         target_date = pd.to_datetime(selected_date)
-        df = get_price_data("SOXL", start="2011-10-01", end=(target_date + timedelta(days=1)).strftime("%Y-%m-%d"))
+        df = get_price_data("SOXL", start="2012-01-01", end=(target_date).strftime("%Y-%m-%d"))
         if df.empty:
             return render_template("backtest.html", graph_html=None, result_text="📭 데이터를 불러오지 못했습니다. 날짜 범위나 종목명을 확인해주세요.", today=datetime.today().strftime("%Y-%m-%d"), request=request, results=None, feature_summary=None, selected_start=None, selected_end=None, selected_symbol="SOXL", chart_html=None)
 
