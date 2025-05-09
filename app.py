@@ -1,3 +1,5 @@
+from flask import g, request
+from flask import session
 from flask import Flask, render_template, request, redirect, url_for
 import plotly.graph_objects as go
 import plotly.io as pio
@@ -21,6 +23,25 @@ PRO2_WEIGHTS = [0.10, 0.15, 0.20, 0.25, 0.20, 0.10]
 PRO3_WEIGHTS = [1 / TIERS] * TIERS
 
 app = Flask(__name__)
+app.secret_key = "kangpro20250509"
+
+# ✅ 종목 목록 불러오기 함수
+def load_allowed_symbols():    
+    with open("config/symbols.txt", "r") as f:
+        return [line.strip() for line in f if line.strip()]    
+    
+# ✅ 요청 시작 시 전역 설정
+@app.before_request
+def load_symbol_globals():
+    g.allowed_symbols = load_allowed_symbols()  # 파일 등에서 심볼 목록 로드
+    # 세션에서 현재 심볼 가져오고, 없으면 기본값 설정
+    session_symbol = session.get("selected_symbol")
+    if session_symbol in g.allowed_symbols:
+        g.selected_symbol = session_symbol
+    else:
+        g.selected_symbol = g.allowed_symbols[0]
+        session["selected_symbol"] = g.selected_symbol  # 기본값으로 초기화
+
 
 # 홈 → 백테스트 페이지로 이동
 @app.route("/")
@@ -36,17 +57,16 @@ def backtest():
     
     # ✅ 오늘 날짜 변수 추가
     today = datetime.today().strftime("%Y-%m-%d")
-    # ✅ 모든 경우를 대비해 초기값 선언 (GET용 기본값)
-    selected_symbol = "SOXL"
+    # ✅ 모든 경우를 대비해 초기값 선언 (GET용 기본값)    
     selected_start = "2025-01-01"
     selected_end = today
 
-    if request.method == "POST":
-        print("✅ POST 요청 도착!")  # 터미널에서 확인
-
-        symbol = request.form.get("symbol", "SOXL")
-        selected_symbol = symbol  # ✅ 유지용 변수 저장
-        
+    if request.method == "POST":        
+        symbol = request.form.get("symbol")
+        if symbol in g.allowed_symbols:
+            session["selected_symbol"] = symbol
+            g.selected_symbol = symbol  # ✅ 이 줄이 필요합니다!
+                
         start = request.form.get("start", "2025-01-01")
         selected_start = start  # ✅ 사용자가 입력한 시작일 유지
 
@@ -71,7 +91,8 @@ def backtest():
         df["ma60"] = df["close"].rolling(window=60).mean()
         
         # ✅ 사용자가 요청한 실제 구간만 추출
-        test_df = df[df["date"] >= start].reset_index(drop=True)
+        test_df = df[df["date"] >= pd.to_datetime(start).date()].reset_index(drop=True)
+
 
         initial_cash = 10000.0
         
@@ -88,9 +109,10 @@ def backtest():
 
 
         chart_fig.update_layout(
-            title="📈 기간 차트 (log scale)",
+            title=f"📈 {symbol} 기간 차트 (logscale)",
             xaxis=dict(title=''),  # 하단 라벨 제거
-            yaxis=dict(title="주가", type="log"),  # ✅ y축을 로그 스케일로 설정
+            # yaxis=dict(title=symbol, type="log"),  # ✅ y축을 로그 스케일로 설정
+            yaxis=dict(title=symbol),
             template="plotly_dark",
             height=300,
             margin=dict(l=40, r=20, t=40, b=0),  # ✅ 마진 조정: 상하좌우
@@ -103,7 +125,8 @@ def backtest():
             )
         )
 
-        chart_html = pio.to_html(chart_fig, full_html=False, config={"staticPlot": True})
+        # chart_html = pio.to_html(chart_fig, full_html=False, config={"staticPlot": True})
+        chart_html = pio.to_html(chart_fig, full_html=False)
 
 
         # ✅ 최신 지표 추출
@@ -213,7 +236,8 @@ def backtest():
                 margin=dict(l=0, r=0, t=80, b=30)  # ✅ 마진 조정: 상하좌우
             )
 
-            graph_html = pio.to_html(fig, full_html=False, config={"staticPlot": True})
+            # graph_html = pio.to_html(fig, full_html=False, config={"staticPlot": True})
+            graph_html = pio.to_html(fig, full_html=False)
 
             results[name] = {
                 "final_value": last_value,
@@ -237,7 +261,7 @@ def backtest():
             feature_summary=feature_summary,
             selected_start=selected_start,
             selected_end=selected_end,
-            selected_symbol=selected_symbol,
+            selected_symbol=symbol,
             chart_html=chart_html,
         )
 
@@ -252,7 +276,7 @@ def backtest():
         feature_summary=None,
         selected_start=selected_start,
         selected_end=selected_end,
-        selected_symbol=selected_symbol,
+        selected_symbol=g.selected_symbol,
         chart_html=None
     )
 
@@ -291,7 +315,7 @@ def run_recommendation_logic(target_date):
             feature_summary=None,
             selected_start=selected_start,
             selected_end=selected_end,
-            selected_symbol=selected_symbol,
+            selected_symbol=g.selected_symbol,
             chart_html=None
         )
             
@@ -464,6 +488,11 @@ def recommend():
     recommend_result = None
 
     if request.method == "POST":
+        symbol = request.form.get("symbol")
+        if symbol in g.allowed_symbols:
+            session["selected_symbol"] = symbol
+            g.selected_symbol = symbol  # ✅ 이 줄이 필요합니다!
+        
         date_mode = request.form.get("date_mode")
         if date_mode == "today":
             selected_date = datetime.today().strftime("%Y-%m-%d")
@@ -471,7 +500,7 @@ def recommend():
             selected_date = request.form.get("custom_date") or selected_date
 
         target_date = pd.to_datetime(selected_date)
-        df = get_price_data("SOXL", start="2012-01-01", end=(target_date).strftime("%Y-%m-%d"))
+        df = get_price_data(symbol, start="2011-01-01", end=(target_date).strftime("%Y-%m-%d"))
         if df.empty:
             return render_template("backtest.html", graph_html=None, result_text="📭 데이터를 불러오지 못했습니다. 날짜 범위나 종목명을 확인해주세요.", today=datetime.today().strftime("%Y-%m-%d"), request=request, results=None, feature_summary=None, selected_start=None, selected_end=None, selected_symbol="SOXL", chart_html=None)
 
@@ -482,7 +511,7 @@ def recommend():
         if len(recent_window) < 30:
             return render_template("recommend.html", error="최근 30일 데이터가 부족합니다.", selected_date=selected_date)
 
-        rolling_df = load_or_run_rolling_cache("SOXL", df, start_date="2012-01-01", test_days=30)
+        rolling_df = load_or_run_rolling_cache(symbol, df, start_date="2012-01-01", test_days=30)
         # cutoff_date = (target_date - timedelta(days=30)).date()
         # past_df = rolling_df[rolling_df["종료일"] < cutoff_date].copy()
         cutoff_date = pd.to_datetime(target_date - timedelta(days=30))
@@ -574,7 +603,7 @@ def recommend():
 
             match_chart.update_layout(
                 xaxis=dict(title='', range=[plot_start, plot_end]),
-                yaxis_title="주가 (로그)",
+                yaxis_title=f"{symbol} (logscale)",
                 yaxis_type="log",
                 template="plotly_dark",
                 height=250,
@@ -582,7 +611,8 @@ def recommend():
                 legend=dict(x=0.01, y=0.99, bgcolor="rgba(0,0,0,0)", borderwidth=0)
             )
             
-            match_chart_html = pio.to_html(match_chart, full_html=False, config={"staticPlot": True})
+            # match_chart_html = pio.to_html(match_chart, full_html=False, config={"staticPlot": True})
+            match_chart_html = pio.to_html(match_chart, full_html=False)
             
             top_details.append({
                 "순번": f"Top{display_index}",
@@ -617,7 +647,7 @@ def recommend():
 
         chart_fig.update_layout(
             xaxis=dict(title=''),
-            yaxis_title="주가 (로그)",
+            yaxis_title=f"{symbol} (logscale)",
             yaxis_type="log",
             template="plotly_dark",
             height=300,
@@ -628,7 +658,8 @@ def recommend():
                 borderwidth=0
             )
         )
-        chart_html = pio.to_html(chart_fig, full_html=False, config={"staticPlot": True})
+        # chart_html = pio.to_html(chart_fig, full_html=False, config={"staticPlot": True})
+        chart_html = pio.to_html(chart_fig, full_html=False)
 
         # ✅ 전략 파라미터 설명 텍스트 추가 (실제 상수값 기반으로 계산)
         def weights_to_str(weights):
@@ -674,14 +705,17 @@ def recommend():
             today=datetime.today().strftime("%Y-%m-%d"),  
             recommend_result=recent_summary, 
             chart_html=chart_html,
-            date_mode=date_mode)
+            date_mode=date_mode,
+            selected_symbol=symbol
+            )
 
     return render_template(
         "recommend.html", 
         selected_date=selected_date, 
         recommend_result=None, 
         chart_html=None,        
-        date_mode="today"  # ✅ 기본값 설정
+        date_mode="today",
+        selected_symbol=g.selected_symbol
         )
 
 
@@ -690,38 +724,40 @@ from utils.stat import run_or_load_yearly_statistics  # 👈 아까 만든 함�
 @app.route("/stats")
 def stats():    
          
-    # ✅ 연도별 백테스트 실행 or 캐시 로드
-    yearly_df = run_or_load_yearly_statistics()
+    # # ✅ 연도별 백테스트 실행 or 캐시 로드
+    # yearly_df = run_or_load_yearly_statistics()
 
-    pro1_stats = yearly_df[["연도", "Pro1_수익률", "Pro1_MDD"]].rename(
-        columns={"Pro1_수익률": "수익률", "Pro1_MDD": "MDD"}
-    ).to_dict(orient="records")
+    # pro1_stats = yearly_df[["연도", "Pro1_수익률", "Pro1_MDD"]].rename(
+    #     columns={"Pro1_수익률": "수익률", "Pro1_MDD": "MDD"}
+    # ).to_dict(orient="records")
 
-    pro2_stats = yearly_df[["연도", "Pro2_수익률", "Pro2_MDD"]].rename(
-        columns={"Pro2_수익률": "수익률", "Pro2_MDD": "MDD"}
-    ).to_dict(orient="records")
+    # pro2_stats = yearly_df[["연도", "Pro2_수익률", "Pro2_MDD"]].rename(
+    #     columns={"Pro2_수익률": "수익률", "Pro2_MDD": "MDD"}
+    # ).to_dict(orient="records")
 
-    pro3_stats = yearly_df[["연도", "Pro3_수익률", "Pro3_MDD"]].rename(
-        columns={"Pro3_수익률": "수익률", "Pro3_MDD": "MDD"}
-    ).to_dict(orient="records")
+    # pro3_stats = yearly_df[["연도", "Pro3_수익률", "Pro3_MDD"]].rename(
+    #     columns={"Pro3_수익률": "수익률", "Pro3_MDD": "MDD"}
+    # ).to_dict(orient="records")
 
-    return render_template("stats.html",
-                           pro1_stats=pro1_stats,
-                           pro2_stats=pro2_stats,
-                           pro3_stats=pro3_stats)
+    # return render_template("stats.html",
+    #                        pro1_stats=pro1_stats,
+    #                        pro2_stats=pro2_stats,
+    #                        pro3_stats=pro3_stats)
+    
+    return render_template("stats.html")
 
 
-@app.route("/api/stats/yearly/<int:year>")
-def api_yearly_chart(year):
-    cache_path = f"cache/stats_{year}.csv"
-    if not os.path.exists(cache_path):
-        return {"error": "해당 연도의 캐시 파일이 없습니다."}, 404
+# @app.route("/api/stats/yearly/<int:year>")
+# def api_yearly_chart(year):
+#     cache_path = f"cache/stats_{year}.csv"
+#     if not os.path.exists(cache_path):
+#         return {"error": "해당 연도의 캐시 파일이 없습니다."}, 404
 
-    df = pd.read_csv(cache_path, parse_dates=["date"])
-    df["portfolio_value"] = df["portfolio_value"].round(2)
-    df["drawdown"] = (df["drawdown"] * 100).round(2)
+#     df = pd.read_csv(cache_path, parse_dates=["date"])
+#     df["portfolio_value"] = df["portfolio_value"].round(2)
+#     df["drawdown"] = (df["drawdown"] * 100).round(2)
 
-    return df.to_dict(orient="records")
+#     return df.to_dict(orient="records")
 
 
 @app.route("/info")

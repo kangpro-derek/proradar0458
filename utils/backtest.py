@@ -1,6 +1,7 @@
 # utils/backtest.py
 # 📌 TTL 전략 백테스트용 클래스와 함수 정의
 
+import requests
 import pandas as pd
 import numpy as np
 from datetime import timedelta
@@ -8,34 +9,33 @@ from datetime import datetime
 import pytz
 import os
 import pandas as pd
-from alpha_vantage.timeseries import TimeSeries
-
-from alpha_vantage.timeseries import TimeSeries
 import pandas as pd
 import os
 from utils.recommend import calculate_roc
 
-API_KEYS = ["ONB35B97BRJ6G3T8", "AP68Y6LGDXSHYQEP"]
-# API 키 순차적으로 사용하기 위한 인덱스
-api_key_index = 0
+TIINGO_API_KEY = "87f8380c68d1ae98523f90aa602a84b12a9e7483"  # 👉 Tiingo 웹사이트에서 발급받은 키 입력
+
+# API_KEYS = ["ONB35B97BRJ6G3T8", "AP68Y6LGDXSHYQEP"]
+# # API 키 순차적으로 사용하기 위한 인덱스
+# api_key_index = 0
 
 # 한국 시간 설정 (UTC+9)
 KST = pytz.timezone('Asia/Seoul')
 
-CALL_COUNT = 0
-MAX_CALLS_PER_DAY = 490  # Alpha Vantage 무료 플랜 기준 (여유 포함)
+# CALL_COUNT = 0
+# MAX_CALLS_PER_DAY = 490  # Alpha Vantage 무료 플랜 기준 (여유 포함)
 
-def get_next_api_key():
-    global api_key_index
-    api_key_index = (api_key_index + 1) % len(API_KEYS)
-    return API_KEYS[api_key_index]
+# def get_next_api_key():
+#     global api_key_index
+#     api_key_index = (api_key_index + 1) % len(API_KEYS)
+#     return API_KEYS[api_key_index]
 
-def check_api_quota():
-    global CALL_COUNT
-    CALL_COUNT += 1
-    print(f"📈 API 호출 카운트: {CALL_COUNT}/{MAX_CALLS_PER_DAY}")
-    if CALL_COUNT > MAX_CALLS_PER_DAY:
-        raise RuntimeError("📛 Alpha Vantage 일일 호출 한도 초과. 내일 다시 시도하세요.")
+# def check_api_quota():
+#     global CALL_COUNT
+#     CALL_COUNT += 1
+#     print(f"📈 API 호출 카운트: {CALL_COUNT}/{MAX_CALLS_PER_DAY}")
+#     if CALL_COUNT > MAX_CALLS_PER_DAY:
+#         raise RuntimeError("📛 Alpha Vantage 일일 호출 한도 초과. 내일 다시 시도하세요.")
         
 def is_range_cached(start_dt, end_dt, df):
     if "date" not in df.columns or df.empty:
@@ -68,67 +68,108 @@ def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
 def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
     cache_dir = "cache"
     os.makedirs(cache_dir, exist_ok=True)
-    cache_file = os.path.join(cache_dir, f"{symbol}.csv")
-    last_download_file = os.path.join(cache_dir, f"{symbol}_last_downloaded.txt")  # 마지막 다운로드 날짜 파일 경로
 
-    # 처음 API_KEY로 TimeSeries 객체 생성
-    ts = TimeSeries(key=get_next_api_key(), output_format="pandas")
+    cache_file = os.path.join(cache_dir, f"{symbol}.csv")
+    last_download_file = os.path.join(cache_dir, f"{symbol}_last_downloaded.txt")
 
     # ✅ 캐시 로드
     if os.path.exists(cache_file):
         cached_df = pd.read_csv(cache_file, parse_dates=["date"])
+        cached_df["date"] = pd.to_datetime(cached_df["date"]).dt.date  # tz 제거 및 .date로 통일
     else:
         cached_df = pd.DataFrame(columns=["date", "close", "open", "high", "low", "volume"])
 
     # ✅ 마지막 다운로드 날짜 로드
     if os.path.exists(last_download_file):
-        with open(last_download_file, 'r') as f:
-            last_downloaded_date = f.read().strip()
-            last_downloaded_date = pd.to_datetime(last_downloaded_date)
+        with open(last_download_file, "r") as f:
+            last_downloaded_date = pd.to_datetime(f.read().strip()).date()
     else:
         last_downloaded_date = None
 
-    # ✅ 날짜 설정
-    start_dt = pd.to_datetime(start)
-    end_dt = pd.to_datetime(end)
+    # ✅ 요청 범위 처리
+    start_dt = pd.to_datetime(start).date()
+    end_dt = pd.to_datetime(end).date()
 
-    # ✅ 캐시 범위 확인
-    range_cached = is_range_cached(start_dt, end_dt, cached_df)
+    # ✅ 캐시 범위 포함 여부 판단
+    if not cached_df.empty:
+        min_cached = min(cached_df["date"])
+        max_cached = max(cached_df["date"])
+        range_cached = (start_dt >= min_cached) and (end_dt <= max_cached)
+    else:
+        range_cached = False
 
-    # ✅ 다운로드 여부 판단
+    # ✅ 디버깅 출력
+    print(f"🔍 range_cached = {range_cached}")
+    print(f"📅 last_downloaded_date = {last_downloaded_date}")
+    print(f"📅 end_dt = {end_dt}")
+
+    # ✅ 다운로드 조건: 캐시 범위 부족 + 마지막 다운로드 기록 미달
     if not range_cached and (last_downloaded_date is None or last_downloaded_date != end_dt):
-        print("🌐 Alpha Vantage로 부족한 데이터 다운로드")  # 로그 이동
+        print("🌐 Tiingo에서 데이터 다운로드")
 
-        # 데이터를 다운로드해야 하는 경우
+        url = f"https://api.tiingo.com/tiingo/daily/{symbol}/prices"
+        headers = {"Content-Type": "application/json"}
+        params = {
+            "token": TIINGO_API_KEY,
+            "startDate": "2010-01-01",  # 전체 데이터 요청
+            "resampleFreq": "daily"
+        }
+
         try:
-            fetched_df, _ = ts.get_daily(symbol=symbol, outputsize="full")
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
         except Exception as e:
-            print(f"❌ Alpha Vantage 다운로드 실패: {e}")
+            print(f"❌ Tiingo 다운로드 실패: {e}")
             return pd.DataFrame()
 
-        fetched_df = fetched_df.rename(columns={
-            "1. open": "open", "2. high": "high", "3. low": "low",
-            "4. close": "close", "5. volume": "volume"
-        }).reset_index().rename(columns={"date": "date"})
+        df = pd.DataFrame(data)
+        df["date"] = pd.to_datetime(df["date"]).dt.date  # tz 제거 후 date 타입 변환
+                        
+        # adjClose가 없는지 확인
+        if "adjClose" not in df.columns or df["adjClose"].isnull().all():
+            print(f"⚠️ {symbol} 은 adjClose(조정 종가)를 제공하지 않습니다.")
 
-        fetched_df["date"] = pd.to_datetime(fetched_df["date"])
-        fetched_df = fetched_df[["date", "close", "open", "high", "low", "volume"]].sort_values("date")
+        df = df.rename(columns={
+            "adjClose": "close",
+            "adjOpen": "open",
+            "adjHigh": "high",
+            "adjLow": "low",
+            "adjVolume": "volume"
+        })
+        
+        df = df.loc[:, ~df.columns.duplicated(keep="first")]
 
-        # 캐시 업데이트
-        cached_df = pd.concat([cached_df, fetched_df]).drop_duplicates(subset="date").sort_values("date")
+        df = df[["date", "close", "open", "high", "low", "volume"]].sort_values("date")
+        
+        # 병합 전에 열 이름 정리
+        expected_columns = ["date", "close", "open", "high", "low", "volume"]
+
+        # 필터링하여 필요한 열만 유지
+        df = df[[col for col in expected_columns if col in df.columns]]
+        cached_df = cached_df[[col for col in expected_columns if col in cached_df.columns]]
+
+        # 열 이름 강제 설정 (혹시라도 NaN 있을 경우 대비)
+        df.columns = expected_columns[:df.shape[1]]
+        cached_df.columns = expected_columns[:cached_df.shape[1]]
+        
+        # ✅ 캐시 병합 및 저장
+        cached_df = pd.concat([cached_df, df], ignore_index=True)
+        cached_df = cached_df.drop_duplicates(subset="date").sort_values("date")
         cached_df.to_csv(cache_file, index=False)
 
-        # 마지막 다운로드 날짜를 실제 요청한 날짜 (end_dt)로 기록
-        with open(last_download_file, 'w') as f:
-            f.write(str(end_dt.date()))  # 마지막 다운로드 날짜 업데이트
-        
-        print(f"✅ 병합 캐시 저장 완료: {cache_file}")
+        # ✅ 다운로드 기록 갱신
+        with open(last_download_file, "w") as f:
+            f.write(str(end_dt))
 
-    full_df = cached_df.copy()
-    full_df["date"] = pd.to_datetime(full_df["date"])
-    result_df = full_df[(full_df["date"] >= start_dt) & (full_df["date"] <= end_dt)].copy()
+        print(f"✅ 병합된 캐시 저장 완료: {cache_file}")
 
-    # ✅ 지표 계산
+    # ✅ 요청 구간 필터링
+    result_df = cached_df[
+        (cached_df["date"] >= start_dt) & (cached_df["date"] <= end_dt)
+    ].copy()
+
+    # ✅ 기술적 지표 계산
     result_df['ma20'] = result_df['close'].rolling(window=20).mean()
     result_df['ma60'] = result_df['close'].rolling(window=60).mean()
     result_df["기울기"] = ((result_df["ma20"] - result_df["ma20"].shift(10)) / result_df["ma20"].shift(10)) * 100
@@ -140,8 +181,6 @@ def get_price_data(symbol: str, start: str, end: str) -> pd.DataFrame:
     result_df["RSI"] = calculate_rsi(result_df["close"])
 
     return result_df.reset_index(drop=True)
-
-
 
 
 
