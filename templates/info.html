@@ -112,22 +112,26 @@
 
 <!-- ✅ 후원하기 섹션 -->
 <div class="p-4 rounded mt-4 bg-secondary text-white">
-    <h4 class="fw-bold mb-3">☕ 후원하기</h4>
-    <p>
-       레이더가 투자에 도움이 되셨다면 커피 한 잔으로 응원해주세요. 🙏<br>
-       서버 비용 충당 및 프로젝트 개발에 큰 힘이 됩니다!<br>      
-    </p>    
-    <div class="row row-cols-1 row-cols-md-2 g-4">
-      <div class="col text-center">
-        <p class="mb-1">💙 토스로 후원</p>
-        <img src="{{ url_for('static', filename='img/donate_toss_qr.png') }}" class="img-fluid rounded shadow" style="max-width: 160px;" alt="Toss QR">
-      </div>
-      <div class="col text-center">
-        <p class="mb-1">🟡 카카오페이로 후원</p>
-        <img src="{{ url_for('static', filename='img/donate_kakao_qr.png') }}" class="img-fluid rounded shadow" style="max-width: 160px;" alt="KakaoPay QR">
-      </div>
+  <h4 class="fw-bold mb-3">☕ 후원하기</h4>
+  <p>
+    레이더가 투자에 도움이 되셨다면 커피 한 잔으로 응원해주세요. 🙏<br>
+    서버 비용 충당 및 프로젝트 개발에 큰 힘이 됩니다!
+  </p>
+
+  <div class="row row-cols-1 row-cols-md-2 g-4">
+    <div class="col text-center">
+      <p class="mb-1">💙 토스로 후원</p>
+      <div class="small text-light fw-bold mb-2">토스뱅크 1000-0008-9343 (KDH)</div>
+      <img src="{{ url_for('static', filename='img/donate_toss_qr.png') }}" class="img-fluid rounded shadow" style="max-width: 160px;" alt="Toss QR">
+    </div>
+    <div class="col text-center">
+      <p class="mb-1">🟡 카카오페이로 후원</p>
+      <div class="small text-light fw-bold mb-2">카카오뱅크 3333-01-1557500 (KDH)</div>
+      <img src="{{ url_for('static', filename='img/donate_kakao_qr.png') }}" class="img-fluid rounded shadow" style="max-width: 160px;" alt="KakaoPay QR">
     </div>
   </div>
+</div>
+
   
   
 
